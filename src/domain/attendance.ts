@@ -117,12 +117,14 @@ export function detectRosterConflicts(
   return out;
 }
 
-/** Inclusive count of days between two ISO dates, excluding weekends when requested. */
-export function countDays(start: string, end: string, excludeWeekends = true): number {
+/** Inclusive count of working days between two ISO dates: weekends (when requested) and listed public holidays are not counted. */
+export function countDays(start: string, end: string, excludeWeekends = true, holidays: readonly string[] = []): number {
   let n = 0;
   for (let d = start; d <= end; d = addDays(d, 1)) {
     const dow = new Date(`${d}T00:00:00Z`).getUTCDay();
-    if (!excludeWeekends || (dow !== 0 && dow !== 6)) n++;
+    if (excludeWeekends && (dow === 0 || dow === 6)) continue;
+    if (holidays.includes(d)) continue;
+    n++;
   }
   return n;
 }

@@ -1,5 +1,9 @@
 import { can } from '../domain/policy';
 import type { Ctx } from './ctx';
+import { listDocuments } from './documents';
+import { listAccounts } from './crm';
+import { listTickets } from './tickets';
+import { listTransactions } from './finance';
 
 export interface Hit { kind: string; title: string; subtitle?: string; href: string }
 
@@ -29,5 +33,14 @@ export async function search(c: Ctx, raw: string): Promise<Hit[]> {
     const depts = await c.q.query<any>(`select id, name from departments where lower(name) like $1 and archived_at is null limit 5`, [like]);
     for (const d of depts) hits.push({ kind: 'Department', title: d.name, href: can(c.subject, 'dashboard:executive').allow ? `/executive/department/${d.id}` : '/admin/structure' });
   }
-  return hits.slice(0, 25);
+  // Records below reuse each module's own listing, so visibility rules (document access, own tickets, finance scope) are applied exactly as on those pages.
+  const skip = async <T,>(f: () => Promise<T[]>): Promise<T[]> => { try { return await f(); } catch { return []; } };
+  if (can(c.subject, 'doc:view').allow) for (const d of (await skip(() => listDocuments(c, { q }))).slice(0, 6)) hits.push({ kind: 'Document', title: d.title, subtitle: d.category ?? undefined, href: `/documents/${d.id}` });
+  if (can(c.subject, 'crm:view').allow) for (const a of (await skip(() => listAccounts(c, { q }))).slice(0, 6)) hits.push({ kind: 'Client', title: a.name, subtitle: a.status, href: `/crm/${a.id}` });
+  if (can(c.subject, 'ticket:create').allow) {
+    const scope = can(c.subject, 'ticket:handle').allow ? 'all' : 'mine';
+    for (const t of (await skip(() => listTickets(c, scope))).filter((t: any) => `${t.number} ${t.subject}`.toLowerCase().includes(q)).slice(0, 6)) hits.push({ kind: 'Ticket', title: `${t.number} ${t.subject}`, subtitle: t.status, href: `/tickets/${t.id}` });
+  }
+  if (can(c.subject, 'finance:view').allow) for (const t of (await skip(() => listTransactions(c, { q, limit: 6 }))).slice(0, 6)) hits.push({ kind: 'Finance', title: `${t.number} ${t.title}`, subtitle: t.status, href: `/finance/${t.id}` });
+  return hits.slice(0, 40);
 }

@@ -77,6 +77,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
                 <p className="truncate text-sm text-muted">{sh.s.email}</p>
                 <ThemeToggle />
                 <InstallMenuItem />
+                <Link href="/account/notifications" className="btn-ghost w-full justify-start"><Icon name="bell" className="h-4 w-4" /> Notification settings</Link>
                 <Link href="/account/security" className="btn-ghost w-full justify-start"><Icon name="lock" className="h-4 w-4" /> Security & password</Link>
                 <form action={logout}><button className="btn-ghost w-full" type="submit">Sign out</button></form>
               </div>

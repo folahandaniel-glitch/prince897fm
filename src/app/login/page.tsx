@@ -50,7 +50,8 @@ export default async function LoginPage() {
           <h1 className="text-2xl font-bold">Staff sign in</h1>
           <p className="mt-1 text-sm text-muted">{b.tagline || 'Enter your organisation code, email and password.'}</p>
           <LoginForm action={signIn} defaultOrg={slug} />
-          <p className="mt-4 text-sm text-muted">New here? Ask HR for the registration link.</p>
+          <p className="mt-4 text-sm"><a className="underline" href="/forgot">Forgot your password?</a></p>
+          <p className="mt-2 text-sm text-muted">New here? Ask HR for the registration link.</p>
         </div>
         <p className="mt-4 text-center text-xs text-white/60">{b.footer}</p>
       </div>

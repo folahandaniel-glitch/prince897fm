@@ -2,6 +2,8 @@ import { cache } from 'react';
 import { cookies, headers } from 'next/headers';
 import { notFound, redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
+import { after } from 'next/server';
+import { emailConfigured, flushOutbox, smsConfigured } from './messaging';
 import { resolveSession, SESSION_COOKIE } from './auth';
 import { loadSubject, runAs, UserError, type Ctx } from './ctx';
 import { withTenant } from './db';
@@ -100,6 +102,7 @@ export async function mutate(paths: string[], fn: (ctx: Ctx) => Promise<string |
   try {
     const msg = await runAs(s.org_id, s.user_id, fn, await requestMeta());
     for (const p of paths) revalidatePath(p);
+    if (emailConfigured() || smsConfigured()) after(() => flushOutbox().catch(() => {})); // deliver queued messages right after responding; cron is the backstop
     return { ok: msg || 'Saved.' };
   } catch (e) {
     if (e instanceof UserError) return { error: e.message };

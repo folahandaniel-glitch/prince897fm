@@ -30,6 +30,7 @@ export default async function Dashboard() {
       ['/reports', 'doc', 'Reports', 'Weekly and monthly', 'report:submit', 'reports'],
       ['/leave', 'calendar', 'Leave', 'Balances and requests', 'leave:request', 'attendance'],
       ['/tickets', 'headset', 'Get support', 'Report a fault or ask for help', 'ticket:create', 'tickets'],
+      ['/training', 'target', 'Training', 'Courses and certificates', 'training:view:own', 'training'],
       ['/discipline', 'scale', 'Warnings & queries', 'Records about you', 'discipline:view:own', 'discipline'],
       ['/mail', 'mail', 'Mail', 'Messages from colleagues', 'mail:use', 'mail'],
     ].filter(([, , , , perm, feat]) => p.allowed(perm as string) && p.feature(feat as string));

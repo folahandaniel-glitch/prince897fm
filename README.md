@@ -16,6 +16,10 @@ Universal, multi-tenant, configuration-driven enterprise platform by **Fodan Sof
 | CRM & support | Accounts, contacts, opportunities, activities, follow-ups; support tickets with SLA |
 | Builders | Custom modules, automations, dashboards, wallboards (TV), pages, public forms, module packs, org templates, config export/import |
 | Documents, mail, calendar | Versioned documents, internal mail, events, announcements |
+| Finance extras | Invoices and vendor bills with VAT and withholding tax, receivables/payables ageing, bank statement CSV import with match-and-reconcile, tax position |
+| Training | Courses, assignments, results with certificate expiry, mandatory-course gap report, due and expiry alerts |
+| Messaging | Every in-app notice is mirrored to email (opt-out per person) through an outbox; email via Resend, SMS via Termii (optional); password reset by email |
+| Leave | Public holidays (not counted as leave days) |
 | BackEnd (`/backend`) | Super Admin console: users, roles, feature switches, security, organisations, config. The Super Admin account is hidden from the Chairman and all staff, and can assist with the Chairman's approval queue |
 
 See `KNOWN_GAPS.md` for what is deliberately not implemented and what must be verified before real use.
@@ -31,7 +35,7 @@ With no `DATABASE_URL`, an embedded Postgres (PGlite) is stored in `.data/pg` an
 (`prince897` radio station, `gracechapel` church). Generated demo sign-in details are written to `.data/seed-credentials.txt` (git-ignored).
 
 ```bash
-npm test             # 193 tests
+npm test             # 228 tests
 npm run typecheck
 npm run build
 ```
@@ -48,6 +52,9 @@ npm run build
    | `APP_SECRET` | Long random string (32+ chars). Encrypts MFA secrets. Changing it invalidates enrolled authenticators. |
    | `CRON_SECRET` | Long random string; Vercel sends it to the cron routes. |
    | `DEFAULT_ORG_SLUG` | Optional, e.g. `prince897`: tenant pre-filled on the sign-in page. |
+   | `APP_URL` | Public address of the deployment, e.g. `https://worksuite.example.com` (used in email links). |
+   | `RESEND_API_KEY`, `MAIL_FROM` | Optional. Enables email delivery (notifications, password reset). Without them messages are queued then marked skipped; in-app notices still work. |
+   | `TERMII_API_KEY`, `TERMII_SENDER` | Optional. Enables SMS delivery. |
    | `SEED_DEMO` | Leave **unset** in production. |
 
 4. Deploy. Migrations in `migrations/` apply automatically on first request (advisory-locked, recorded in `schema_migrations`).

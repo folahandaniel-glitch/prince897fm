@@ -414,8 +414,9 @@ export async function requestLeave(c: Ctx, i: { typeId: string; start: string; e
   if (i.start < today()) throw new UserError('Leave cannot start in the past. Use an attendance request for past dates.');
   const type = (await c.q.query<any>('select * from leave_types where id = $1 and archived_at is null', [i.typeId]))[0];
   if (!type) throw new UserError('Unknown leave type.');
-  const days = countDays(i.start, i.end);
-  if (days <= 0) throw new UserError('That range contains no working days.');
+  const hol = (await c.q.query<{ d: string }>(`select holiday_date::text as d from public_holidays where holiday_date between $1 and $2`, [i.start, i.end])).map((h) => h.d);
+  const days = countDays(i.start, i.end, true, hol);
+  if (days <= 0) throw new UserError('That range contains no working days (weekends and public holidays are not counted).');
   const overlap = await c.q.query(`select 1 from leave_requests where employee_id = $1 and status in ('pending','approved') and start_date <= $3::date and end_date >= $2::date`, [emp.id, i.start, i.end]);
   if (overlap[0]) throw new UserError('You already have leave requested or approved on some of those dates.');
   if (Number(type.annual_days) > 0) {

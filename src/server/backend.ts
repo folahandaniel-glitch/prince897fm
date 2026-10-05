@@ -114,6 +114,7 @@ export const FEATURES: { key: string; label: string; note: string }[] = [
   { key: 'documents', label: 'Documents', note: 'Library with expiry alerts.' },
   { key: 'mail', label: 'Internal mail', note: '' },
   { key: 'calendar', label: 'Calendar and events', note: '' },
+  { key: 'training', label: 'Training and certification', note: 'Courses, records, expiry alerts.' },
   { key: 'builders', label: 'Builders and custom modules', note: 'Modules, forms, dashboards, pages.' },
 ];
 

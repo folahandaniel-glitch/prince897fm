@@ -8,18 +8,20 @@
 
 ## Security
 - CSP allows `'unsafe-inline'` scripts; move to per-request nonces. 
-- No password reset or email verification (needs an email provider adapter); admins issue one-time passwords.
-- Rate limiting is database-backed for login only; add edge rate limiting for other endpoints.
+- Password reset by email exists (needs RESEND_API_KEY and APP_URL). There is no email address verification at sign-up.
+- Rate limiting: login and password reset are strict (database-backed); other POSTs have a best-effort per-instance limit in the middleware, not a shared edge limiter.
 - Uploads are type/size/magic-byte checked but not virus scanned.
 - No external penetration test, SAST/DAST or CI pipeline yet.
 - No field-level encryption of bank details / national IDs.
 - `x-forwarded-for` is trusted for IP capture (correct on Vercel).
 
 ## Product
-- Ticket and CRM notifications are in-app only (no email/SMS/push).
-- Finance: bank statement import, receivables/payables ageing, purchase orders, VAT/WHT, multi-currency not built.
-- Leave: public holidays, carry-over and pro-rata not modelled. Rosters: swaps and rotating patterns not built.
+- Email/SMS are delivered through the outbox only when providers are configured; there is no push notification, and no per-event channel preferences beyond the email on/off switch.
+- Finance: purchase orders and multi-currency are not built. VAT and WHT rates are editable defaults to be confirmed by an accountant; WorkSuite records them on the ledger but does not file returns. Vendor bills have one approval (senior approver for large bills), not the full multi-step chain of transactions. Bank import is CSV only (no live bank feeds); matching is by exact amount and nearby date.
+- Leave: public holidays exist (moveable ones are entered by hand); carry-over and pro-rata are not modelled.
+- Training: records and certificates are tracked as data; there is no course content delivery or online assessment.
+- Rosters: swaps and rotating patterns not built.
 - Attendance: rotating QR and WebAuthn step-up not built; verify the HQ geofence radius on site.
-- Workflow builder is data-driven but has no visual designer; search does not index documents.
-- Wallboard TV/device testing not done. Training/certification module not built.
+- Workflow builder is data-driven but has no visual designer. Search covers staff, tasks, departments, documents, clients, tickets and finance, each through that module's own access rules.
+- Wallboard TV/device testing not done.
 - Tenant custom domains and logo upload UI not built.

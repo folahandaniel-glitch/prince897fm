@@ -58,14 +58,11 @@ npm run build
    | `APP_URL` | Public address of the deployment, e.g. `https://worksuite.example.com` (used in email links). |
    | `RESEND_API_KEY`, `MAIL_FROM` | Optional. Enables email delivery (notifications, password reset). Without them messages are queued then marked skipped; in-app notices still work. |
    | `TERMII_API_KEY`, `TERMII_SENDER` | Optional. Enables SMS delivery. |
+   | `SETUP_TOKEN` | Random string (16+ chars) that unlocks the one-time `/setup` page. |
    | `SEED_DEMO` | Leave **unset** in production. |
 
 4. Deploy. Migrations in `migrations/` apply automatically on first request (advisory-locked, recorded in `schema_migrations`).
-5. Create the first tenant and its administrators (args: code, name, admin email, template, optional hidden Super Admin email; prints one-time passwords, to be changed at first sign-in):
-
-   ```bash
-   DATABASE_URL=... APP_SECRET=... npx tsx scripts/provision.ts prince897 "PRINCE 89.7 FM" chairman@example.com radio you@example.com
-   ```
+5. Create your organisation: open `https://<your-site>/setup`, enter the `SETUP_TOKEN`, the organisation details, the Chairman's/administrator's email and (optionally) your hidden Super Admin email. The page shows one-time passwords once; sign in at `/login` with the organisation code and change the password when asked. `/setup` switches itself off as soon as an organisation exists. (Command-line alternative: `npx tsx scripts/provision.ts prince897 "PRINCE 89.7 FM" chairman@example.com radio you@example.com` with `DATABASE_URL` and `APP_SECRET` set.)
 
 6. Cron jobs (`vercel.json`): attendance at 03:00 UTC and the reports/CRM/tickets/documents/training/outbox sweep at 04:00 UTC, once a day so the free Hobby plan accepts them. On Vercel Pro you can change the second to `0 */6 * * *`. Email is also sent right after each action, so the sweep is only a backstop.
 7. Pick the Vercel function region closest to the database (for Lagos users: Europe or South Africa).

@@ -30,7 +30,7 @@ beforeAll(async () => {
   [admin, hr, presenter, chairman] = await Promise.all(['admin', 'hr', 'presenter', 'chairman'].map((n) => user(`${n}@prince897.example`)));
   // A shift that is "open" right now in the workplace timezone, so tests are independent of the clock.
   const now = localParts(new Date(), 'Africa/Lagos').minutes;
-  await as(hr, (c) => addShift(c, { name: 'Test now', code: 'TNOW', start: hhmm(now - 5), end: hhmm(now + 480) }));
+  await as(hr, (c) => addShift(c, { name: 'Test now', code: 'TNOW', start: hhmm(Math.max(0, now - 5)), end: hhmm(now + 480) }));
   // Remove the seeded shifts so only the test shift can match.
   await (await privileged()).query(`update shifts set archived_at = now() where code <> 'TNOW'`);
 });

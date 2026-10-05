@@ -49,6 +49,7 @@ async function createDriver(): Promise<Driver> {
     if (dir) fs.mkdirSync(path.dirname(dir), { recursive: true });
     const db = dir ? new PGlite(dir, { extensions: { btree_gist } }) : new PGlite({ extensions: { btree_gist } });
     await db.waitReady;
+    await db.exec("set timezone to 'UTC'"); // the application's calendar day is UTC; keep the embedded database consistent on any machine
     if (SCHEMA) { await db.exec(`create schema if not exists "${SCHEMA}"; set search_path to "${SCHEMA}", public`); }
     driver = {
       privileged: { query: async (s, p) => (await db.query(s, p as any[])).rows as any },
@@ -111,7 +112,7 @@ export async function privileged(): Promise<Q> {
 export async function withTenant<T>(orgId: string, fn: (q: Q) => Promise<T>, userId?: string | null): Promise<T> {
   if (!/^[0-9a-f-]{36}$/i.test(orgId)) throw new Error('invalid tenant id');
   return (await driver()).tx(async (q) => {
-    await q.query("select set_config('role', 'app_user', true), set_config('app.org_id', $1, true), set_config('app.user_id', $2, true)", [orgId, userId && /^[0-9a-f-]{36}$/i.test(userId) ? userId : '']);
+    await q.query("select set_config('role', 'app_user', true), set_config('TimeZone', 'UTC', true), set_config('app.org_id', $1, true), set_config('app.user_id', $2, true)", [orgId, userId && /^[0-9a-f-]{36}$/i.test(userId) ? userId : '']);
     return fn(q);
   });
 }

@@ -4,7 +4,7 @@ import { seedOrganization, TEMPLATES } from '../src/server/seed';
 import { runAs } from '../src/server/ctx';
 import { ForbiddenError } from '../src/domain/policy';
 import { assignRoster } from '../src/server/attendance';
-import { cancelSwap, colleagueReply, colleagues, decideSwap, mySwaps, myShifts, requestSwap, swapQueue } from '../src/server/swaps';
+import { cancelSwap, colleagueReply, colleagueShifts, colleagues, decideSwap, mySwaps, myShifts, requestSwap, swapQueue } from '../src/server/swaps';
 import { rotateSecrets } from '../src/server/rotate';
 import { decryptSecret, encryptSecret, encryptWith, decryptWith } from '../src/server/mfa';
 import { seal, unseal } from '../src/server/sensitive';
@@ -101,6 +101,41 @@ describe('shift cover requests', () => {
   it('other tenants cannot see swaps', async () => {
     const other = (await (await privileged()).query<any>(`select id from organizations where slug = 'gracechapel'`))[0].id;
     expect(await withTenant(other, (q) => q.query('select * from shift_swaps'))).toHaveLength(0);
+  });
+});
+
+describe('two-way shift exchange', () => {
+  const e1 = addDaysIso(today, 20), e2 = addDaysIso(today, 21);
+  it('exchanges two shifts when both agree and the manager approves', async () => {
+    await publish(ids.presenterEmp, e1);
+    await publish(ids.mateEmp, e2);
+    const mine = (await as('presenter', (c) => myShifts(c))).find((s: any) => s.d === e1)!.id;
+    const theirs = (await as('presenter', (c) => colleagueShifts(c))).find((s: any) => s.d === e2 && s.full_name === 'Mate Colleague')!;
+    expect(theirs).toBeTruthy();
+    const id = await as('presenter', (c) => requestSwap(c, { entryId: mine, counterEntryId: theirs.id, reason: 'Swap days' }));
+    // the colleague's shift is now locked by this request
+    await expect(as('hr', (c) => requestSwap(c, { entryId: mine, counterEntryId: theirs.id }))).rejects.toThrow();
+    expect((await as('presenter', (c) => colleagueShifts(c))).some((s: any) => s.id === theirs.id)).toBe(false);
+    await as('mate', (c) => colleagueReply(c, id, true));
+    await as('hr', (c) => decideSwap(c, id, true, ''));
+    const rows = await withTenant(ids.org, (q) => q.query<any>(`select employee_id, work_date::text d from roster_entries where work_date in ($1,$2) and superseded_at is null and status = 'published'`, [e1, e2]));
+    const byDate = Object.fromEntries(rows.map((r: any) => [r.d, r.employee_id]));
+    expect(byDate[e1]).toBe(ids.mateEmp);
+    expect(byDate[e2]).toBe(ids.presenterEmp);
+  });
+  it('rolls back everything when the exchange would clash', async () => {
+    const f1 = addDaysIso(today, 25), f2 = addDaysIso(today, 26);
+    await publish(ids.presenterEmp, f1);
+    await publish(ids.mateEmp, f2);
+    await publish(ids.presenterEmp, f2); // the requester already works the day they would receive
+    const mine = (await as('presenter', (c) => myShifts(c))).find((s: any) => s.d === f1)!.id;
+    const theirs = (await as('presenter', (c) => colleagueShifts(c))).find((s: any) => s.d === f2 && s.full_name === 'Mate Colleague')!;
+    const id = await as('presenter', (c) => requestSwap(c, { entryId: mine, counterEntryId: theirs.id }));
+    await as('mate', (c) => colleagueReply(c, id, true));
+    await expect(as('hr', (c) => decideSwap(c, id, true, ''))).rejects.toThrow(/Cannot approve/);
+    const rows = await withTenant(ids.org, (q) => q.query<any>(`select employee_id, work_date::text d from roster_entries where work_date = $1 and superseded_at is null and status = 'published'`, [f1]));
+    expect(rows.map((r: any) => r.employee_id)).toEqual([ids.presenterEmp]); // untouched
+    expect(await as('presenter', (c) => colleagueShifts(c))).not.toBeUndefined();
   });
 });
 

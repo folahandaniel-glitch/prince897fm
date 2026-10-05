@@ -82,7 +82,7 @@ export function violatesSeparation(actorId: string, priorActorIdsByStep: Record<
   return null;
 }
 
-const BASE = ['notification:view:own', 'attendance:clock', 'leave:request', 'report:submit', 'task:create', 'payslip:view:own', 'discipline:view:own', 'ticket:create', 'doc:view', 'mail:use', 'calendar:view', 'training:view:own'];
+const BASE = ['notification:view:own', 'attendance:clock', 'leave:request', 'report:submit', 'task:create', 'payslip:view:own', 'discipline:view:own', 'ticket:create', 'doc:view', 'mail:use', 'calendar:view', 'training:view:own', 'roster:swap'];
 const EXEC = ['dashboard:executive', 'employee:view', 'attendance:view', 'report:review', 'report:oversee', 'task:assign', 'finance:view', 'finance:approve', 'finance:oversee', 'finance:export', 'payroll:approve', 'payroll:view', 'discipline:view', 'discipline:decide', 'crm:view', 'doc:upload', 'event:create', 'announcement:post', 'ticket:handle'];
 
 export interface RoleDef { key: string; name: string; permissions: string[]; hidden?: boolean }

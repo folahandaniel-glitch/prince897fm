@@ -38,21 +38,31 @@ export function verifyTotp(secret: string, code: string, atMs = Date.now()): boo
 }
 
 // Secrets at rest are encrypted with a key derived from APP_SECRET (AES-256-GCM).
-function key() {
+// During a rotation APP_SECRET_PREVIOUS may also be set: values are read with either key and written with the current one.
+function keyFor(secret: string) { return crypto.createHash('sha256').update(`worksuite:${secret}`).digest(); }
+function currentSecret() {
   const s = process.env.APP_SECRET || (process.env.NODE_ENV === 'production' ? '' : 'development-only-secret-change-me');
   if (!s) throw new Error('APP_SECRET is required in production (used to encrypt MFA secrets).');
-  return crypto.createHash('sha256').update(`worksuite:${s}`).digest();
+  return s;
 }
-export function encryptSecret(plain: string): string {
+export function encryptWith(secret: string, plain: string): string {
   const iv = crypto.randomBytes(12);
-  const c = crypto.createCipheriv('aes-256-gcm', key(), iv);
+  const c = crypto.createCipheriv('aes-256-gcm', keyFor(secret), iv);
   const ct = Buffer.concat([c.update(plain, 'utf8'), c.final()]);
   return [iv, c.getAuthTag(), ct].map((b) => b.toString('base64')).join('.');
 }
-export function decryptSecret(blob: string): string {
+export function decryptWith(secret: string, blob: string): string {
   const [iv, tag, ct] = blob.split('.').map((x) => Buffer.from(x, 'base64'));
-  const d = crypto.createDecipheriv('aes-256-gcm', key(), iv); d.setAuthTag(tag);
+  const d = crypto.createDecipheriv('aes-256-gcm', keyFor(secret), iv); d.setAuthTag(tag);
   return Buffer.concat([d.update(ct), d.final()]).toString('utf8');
+}
+export const encryptSecret = (plain: string) => encryptWith(currentSecret(), plain);
+export function decryptSecret(blob: string): string {
+  try { return decryptWith(currentSecret(), blob); } catch (e) {
+    const prev = process.env.APP_SECRET_PREVIOUS;
+    if (!prev) throw e;
+    return decryptWith(prev, blob);
+  }
 }
 
 export const otpauthUri = (secret: string, account: string, issuer: string) =>

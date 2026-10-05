@@ -1,5 +1,6 @@
 import Link from 'next/link';
 
+export const dynamic = 'force-dynamic'; // rendered per request so every script can carry the request's CSP nonce
 export const metadata = { title: 'Not permitted' };
 
 export default function Forbidden() {

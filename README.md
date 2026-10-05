@@ -20,7 +20,7 @@ Universal, multi-tenant, configuration-driven enterprise platform by **Fodan Sof
 | Training | Courses, assignments, results with certificate expiry, mandatory-course gap report, due and expiry alerts |
 | Messaging | Every in-app notice is mirrored to email (opt-out per person) through an outbox; email via Resend, SMS via Termii (optional); password reset by email |
 | Leave | Public holidays (not counted as leave days), pro-rata for new joiners, capped carry-over |
-| Shift cover | Staff ask a colleague to cover a rostered shift; colleague accepts, then the manager approves (rest-hour, leave and overlap checks run) and the roster updates |
+| Shift cover & exchange | Staff ask a colleague to cover a rostered shift, or to exchange shifts; colleague accepts, then the manager approves (rest-hour, leave and overlap checks run) and the roster updates |
 | Procurement | Purchase orders: raise, approve, confirm receipt (three different people), convert to a vendor bill |
 | Data protection | Bank account, tax id and pension PIN are encrypted at rest (AES-256-GCM, key from `APP_SECRET`); payslips keep only a masked form |
 | BackEnd (`/backend`) | Super Admin console: users, roles, feature switches, security, organisations, config. The Super Admin account is hidden from the Chairman and all staff, and can assist with the Chairman's approval queue |
@@ -38,7 +38,7 @@ With no `DATABASE_URL`, an embedded Postgres (PGlite) is stored in `.data/pg` an
 (`prince897` radio station, `gracechapel` church). Generated demo sign-in details are written to `.data/seed-credentials.txt` (git-ignored).
 
 ```bash
-npm test             # 245 tests
+npm test             # 250 tests
 npm run typecheck
 npm run build
 ```

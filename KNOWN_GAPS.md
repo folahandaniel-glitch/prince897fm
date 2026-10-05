@@ -7,7 +7,7 @@
 - Production data needs a managed Postgres with point-in-time recovery and tested restores.
 
 ## Security
-- CSP allows `'unsafe-inline'` scripts; move to per-request nonces. 
+- The Content-Security-Policy now uses a fresh script nonce per request with `strict-dynamic` (no inline-script allowance). Styles still allow `'unsafe-inline'` (Tailwind and component style attributes). The built-in static 404 page has no nonce, so its scripts are blocked (it is plain text and still works).
 - Password reset by email exists (needs RESEND_API_KEY and APP_URL). There is no email address verification at sign-up.
 - Rate limiting: login and password reset are strict (database-backed); other POSTs have a best-effort per-instance limit in the middleware, not a shared edge limiter.
 - Uploads are type/size/magic-byte checked but not virus scanned.
@@ -20,7 +20,7 @@
 - Finance: multi-currency is not built; purchase orders support partial deliveries and bills by value (no line items or quantities). VAT and WHT rates are editable defaults to be confirmed by an accountant; WorkSuite records them on the ledger but does not file returns. Vendor bills have one approval (senior approver for large bills), not the full multi-step chain of transactions. Bank import is CSV only (no live bank feeds); matching is by exact amount and nearby date.
 - Leave: public holidays exist (moveable ones are entered by hand); carry-over is a single yearly cap with no expiry date.
 - Training: records and certificates are tracked as data; there is no course content delivery or online assessment.
-- Rosters: shift cover (one-way) exists; two-way swaps and rotating patterns are not built.
+- Rosters: shift cover and two-way exchanges exist; rotating patterns are not built.
 - Attendance: rotating QR and WebAuthn step-up not built; verify the HQ geofence radius on site.
 - Workflow builder is data-driven but has no visual designer. Search covers staff, tasks, departments, documents, clients, tickets and finance, each through that module's own access rules.
 - Wallboard TV/device testing not done.

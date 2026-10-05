@@ -17,6 +17,24 @@ function limited(ip: string): boolean {
   return e.n > LIMIT;
 }
 
+function cspFor(nonce: string) {
+  const dev = process.env.NODE_ENV !== 'production';
+  return [
+    "default-src 'self'",
+    `script-src 'self' 'nonce-${nonce}' 'strict-dynamic'${dev ? " 'unsafe-eval'" : ''}`,
+    "style-src 'self' 'unsafe-inline'",
+    "img-src 'self' data: blob:",
+    "font-src 'self'",
+    "connect-src 'self'",
+    "manifest-src 'self'",
+    "worker-src 'self'",
+    "frame-ancestors 'none'",
+    "base-uri 'self'",
+    "form-action 'self'",
+    "object-src 'none'",
+  ].join('; ');
+}
+
 export function middleware(req: NextRequest) {
   if (req.method === 'POST') {
     const ip = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown';
@@ -27,7 +45,15 @@ export function middleware(req: NextRequest) {
     const target = req.cookies.has('ws_session') ? '/dashboard' : '/login';
     return NextResponse.redirect(new URL(target, req.url));
   }
-  return NextResponse.next();
+  // A fresh nonce per request: Next.js reads it from the request's CSP header and stamps it on its own scripts.
+  const nonce = btoa(crypto.randomUUID());
+  const csp = cspFor(nonce);
+  const requestHeaders = new Headers(req.headers);
+  requestHeaders.set('x-nonce', nonce);
+  requestHeaders.set('Content-Security-Policy', csp);
+  const res = NextResponse.next({ request: { headers: requestHeaders } });
+  res.headers.set('Content-Security-Policy', csp);
+  return res;
 }
 
 export const config = { matcher: ['/((?!_next/static|_next/image|brand/|icons/|sw.js|favicon.ico|manifest.webmanifest).*)'] };

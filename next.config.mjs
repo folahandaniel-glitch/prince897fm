@@ -2,19 +2,7 @@
 
 import path from 'node:path';
 
-const csp = [
-  "default-src 'self'",
-  "script-src 'self' 'unsafe-inline'", // TODO(security): move to per-request nonces (tracked in KNOWN_GAPS.md)
-  "style-src 'self' 'unsafe-inline'",
-  "img-src 'self' data: blob:",
-  "font-src 'self'",
-  "connect-src 'self'",
-  "manifest-src 'self'",
-  "worker-src 'self'",
-  "frame-ancestors 'none'",
-  "base-uri 'self'",
-  "form-action 'self'",
-].join('; ');
+// The Content-Security-Policy is set per request in src/middleware.ts (it carries a fresh script nonce).
 
 const config = {
   serverExternalPackages: ['@electric-sql/pglite', 'postgres'],
@@ -29,7 +17,6 @@ const config = {
       {
       source: '/:path*',
       headers: [
-        { key: 'Content-Security-Policy', value: csp },
         { key: 'Strict-Transport-Security', value: 'max-age=63072000; includeSubDomains' },
         { key: 'X-Content-Type-Options', value: 'nosniff' },
         { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },

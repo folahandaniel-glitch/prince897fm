@@ -6,9 +6,8 @@ import { privileged } from '@/server/db';
 import { DEFAULT_BRANDING, hexToRgbTriplet, type Branding } from '@/domain/config-schema';
 import { LoginForm } from './form';
 
+export const dynamic = 'force-dynamic'; // rendered per request so every script can carry the request's CSP nonce
 export const metadata = { title: 'Sign in' };
-// Statically generated and refreshed in the background: the sign-in page opens instantly from the edge cache.
-export const revalidate = 60;
 
 async function signIn(_prev: { error?: string } | null, data: FormData): Promise<{ error?: string } | null> {
   'use server';
@@ -24,7 +23,15 @@ async function signIn(_prev: { error?: string } | null, data: FormData): Promise
 }
 
 /** Branding of the tenant that owns this deployment's sign-in page (DEFAULT_ORG_SLUG). Falls back to neutral defaults. */
+let brandCache: { at: number; v: { b: Branding; slug: string } } | null = null; // the page renders per request (CSP nonce), so keep the tenant lookup off the hot path
 async function loginBranding(): Promise<{ b: Branding; slug: string }> {
+  if (brandCache && Date.now() - brandCache.at < 60_000) return brandCache.v;
+  const v = await loadLoginBranding();
+  if (v.slug) brandCache = { at: Date.now(), v };
+  return v;
+}
+
+async function loadLoginBranding(): Promise<{ b: Branding; slug: string }> {
   const slug = process.env.DEFAULT_ORG_SLUG ?? 'prince897';
   // The build must never wait on (or write to) a database: it renders with neutral defaults, and the page refreshes with the tenant's branding at runtime.
   if (process.env.NEXT_PHASE === 'phase-production-build') return { b: DEFAULT_BRANDING, slug };

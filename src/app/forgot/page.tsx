@@ -6,6 +6,7 @@ import { requestPasswordReset } from '@/server/reset';
 import { boot } from '@/server/session';
 import { ForgotForm } from './form';
 
+export const dynamic = 'force-dynamic'; // rendered per request so every script can carry the request's CSP nonce
 export const metadata = { title: 'Forgot password' };
 
 async function send(_p: { ok?: string; error?: string } | null, f: FormData) {

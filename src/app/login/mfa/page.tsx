@@ -4,6 +4,7 @@ import { completeMfa, SESSION_COOKIE } from '@/server/auth';
 import { boot } from '@/server/session';
 import { MfaForm } from './form';
 
+export const dynamic = 'force-dynamic'; // rendered per request so every script can carry the request's CSP nonce
 export const metadata = { title: 'Verify sign-in' };
 
 async function verify(_p: { error?: string } | null, data: FormData): Promise<{ error?: string } | null> {

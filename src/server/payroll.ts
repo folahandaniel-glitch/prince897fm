@@ -2,6 +2,7 @@ import { addDays, localParts } from '../domain/attendance';
 import { fromDb, parseMoney, toDb, MoneyError, formatMoney } from '../domain/finance';
 import { absenceFines, computePayslip, DEFAULT_SETTINGS, latenessFines, workingDaysDivisor, type Compensation, type Credit, type Debit, type PayrollSettings } from '../domain/payroll';
 import { can } from '../domain/policy';
+import { mask, seal, unseal } from './sensitive';
 import { audit } from './audit';
 import { need, UserError, type Ctx } from './ctx';
 import type { Q } from './db';
@@ -76,7 +77,7 @@ export async function setCompensation(c: Ctx, employeeId: string, i: { basic: st
   const r = await c.q.query<{ id: string }>(
     `insert into comp_profiles (org_id, employee_id, basic, housing, transport, other_allowances, pension_enabled, nhf_enabled, annual_rent, tax_id, pension_pin, bank_name, bank_account, effective_from, created_by)
      values ($1,$2,$3,$4,$5,$6::jsonb,$7,$8,$9,$10,$11,$12,$13,$14,$15) returning id`,
-    [c.orgId, employeeId, toDb(basic), toDb(m0(i.housing)), toDb(m0(i.transport)), JSON.stringify(others), i.pension, i.nhf, toDb(m0(i.annualRent)), i.taxId?.trim() || null, i.pensionPin?.trim() || null, i.bankName?.trim() || null, i.bankAccount?.trim() || null, i.effectiveFrom, c.userId]);
+    [c.orgId, employeeId, toDb(basic), toDb(m0(i.housing)), toDb(m0(i.transport)), JSON.stringify(others), i.pension, i.nhf, toDb(m0(i.annualRent)), seal(i.taxId), seal(i.pensionPin), i.bankName?.trim() || null, seal(i.bankAccount), i.effectiveFrom, c.userId]);
   await audit(c.q, { orgId: c.orgId, actorUserId: c.userId, action: 'payroll.compensation_set', entity: 'employee', entityId: employeeId, before: prev ? { basic: prev.basic } : null, after: { basic: toDb(basic), effectiveFrom: i.effectiveFrom }, ip: c.ip, userAgent: c.userAgent });
   return r[0].id;
 }
@@ -100,8 +101,10 @@ export async function compensationOverview(c: Ctx) {
 export async function compensationFor(c: Ctx, employeeId: string) {
   need(c, 'payroll:view');
   const cur = (await c.q.query<any>(`select * from comp_profiles where employee_id = $1 and effective_to is null`, [employeeId]))[0];
+  const full = can(c.subject, 'payroll:manage').allow; // only payroll managers see full identifiers; everyone else sees the last four characters
+  if (full && cur && (cur.bank_account || cur.tax_id || cur.pension_pin)) await audit(c.q, { orgId: c.orgId, actorUserId: c.userId, action: 'payroll.sensitive_viewed', entity: 'employee', entityId: employeeId, ip: c.ip, userAgent: c.userAgent });
   const hist = await c.q.query<any>('select basic, housing, transport, effective_from::text as ef, effective_to::text as et from comp_profiles where employee_id = $1 order by effective_from desc', [employeeId]);
-  return { cur: cur ? { ...mapComp(cur), taxId: cur.tax_id, pensionPin: cur.pension_pin, bankName: cur.bank_name, bankAccount: cur.bank_account, effectiveFrom: d10(cur.effective_from) } : null, hist };
+  return { cur: cur ? { ...mapComp(cur), taxId: full ? unseal(cur.tax_id) : mask(cur.tax_id), pensionPin: full ? unseal(cur.pension_pin) : mask(cur.pension_pin), bankName: cur.bank_name, bankAccount: full ? unseal(cur.bank_account) : mask(cur.bank_account), effectiveFrom: d10(cur.effective_from) } : null, hist };
 }
 
 // ---- Fines and adjustments -----------------------------------------------------------------------------------------------------------
@@ -212,7 +215,7 @@ export async function createRun(c: Ctx, period: string) {
     await c.q.query(
       `insert into payslips (org_id, run_id, employee_id, period, gross, total_deductions, net, details, employee_snapshot) values ($1,$2,$3,$4,$5,$6,$7,$8::jsonb,$9::jsonb)`,
       [c.orgId, run, e.id, period, toDb(r.gross), toDb(r.totalDeductions), toDb(r.net), JSON.stringify({ ...r, appliedIds: r.deductions.map((d) => d.id).filter(Boolean), creditIds: adj.filter((a) => ['bonus', 'allowance', 'overtime'].includes(a.kind)).map((a) => a.id), deferredIds: r.deferred.map((d) => d.id) }),
-        JSON.stringify({ name: e.full_name, number: e.employee_no, departmentId: e.dept_id, department: e.department, position: e.position, bankName: bank.bank_name ?? null, bankAccount: bank.bank_account ?? null, taxId: bank.tax_id ?? null, pensionPin: bank.pension_pin ?? null })]);
+        JSON.stringify({ name: e.full_name, number: e.employee_no, departmentId: e.dept_id, department: e.department, position: e.position, bankName: bank.bank_name ?? null, bankAccount: mask(bank.bank_account), taxId: mask(bank.tax_id), pensionPin: mask(bank.pension_pin) })]);
     totals.gross += r.gross; totals.net += r.net; totals.employees++;
     totals.paye += r.deductions.find((d) => d.label.startsWith('PAYE'))?.amount ?? 0;
     totals.pensionEmp += r.deductions.find((d) => d.label.startsWith('Pension'))?.amount ?? 0;

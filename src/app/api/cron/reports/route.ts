@@ -6,6 +6,7 @@ import { escalateOverdue } from '@/server/tickets';
 import { expiryAlerts } from '@/server/documents';
 import { boot } from '@/server/session';
 import { trainingAlerts } from '@/server/training';
+import { sealLegacy } from '@/server/sensitive';
 import { flushOutbox } from '@/server/messaging';
 
 export const dynamic = 'force-dynamic';
@@ -20,7 +21,7 @@ export async function GET(req: Request) {
   await boot();
   const orgs = await (await privileged()).query<{ id: string }>(`select id from organizations where status = 'active'`);
   let sent = 0;
-  for (const o of orgs) sent += await withTenant(o.id, async (q) => (await sendReportReminders(q, o.id)) + (await remindFollowUps(q, o.id)) + (await escalateOverdue(q, o.id)) + (await expiryAlerts(q, o.id)) + (await trainingAlerts(q, o.id)));
+  for (const o of orgs) sent += await withTenant(o.id, async (q) => (await sendReportReminders(q, o.id)) + (await remindFollowUps(q, o.id)) + (await escalateOverdue(q, o.id)) + (await expiryAlerts(q, o.id)) + (await trainingAlerts(q, o.id)) + (await sealLegacy(q)));
   const mail = await flushOutbox(200);
   return Response.json({ organisations: orgs.length, notificationsSent: sent, outbox: mail });
 }

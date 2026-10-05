@@ -1,4 +1,5 @@
 import crypto from 'node:crypto';
+import { carryOver, leaveEntitlement } from '../domain/leave';
 import {
   addDays, classifyClockIn, countDays, detectRosterConflicts, evaluateLocation, impossibleTravel, localParts, toMin, workDateFor,
   type ShiftDef,
@@ -392,18 +393,32 @@ export async function cancelRoster(c: Ctx, entryId: string, reason: string) {
 }
 
 // ---- Leave ---------------------------------------------------------------------------------------------------------------------------------------------------------
+/** This year's entitlement for one person and leave type: pro-rata for new joiners plus capped carry-over from last year. */
+async function entitlementFor(q: Q, empId: string, type: any, year: number): Promise<{ total: number; carryIn: number }> {
+  const annual = Number(type.annual_days);
+  if (annual <= 0) return { total: 0, carryIn: 0 };
+  const joinedOn = (await q.query<{ j: string }>('select joined_on::text as j from employees where id = $1', [empId]))[0]?.j ?? `${year}-01-01`;
+  let carryIn = 0;
+  if (Number(type.carry_over_max) > 0) {
+    const used = Number((await q.query<any>(`select coalesce(sum(days),0) d from leave_requests where employee_id = $1 and leave_type_id = $2 and status = 'approved' and extract(year from start_date) = $3`, [empId, type.id, year - 1]))[0].d);
+    carryIn = carryOver(leaveEntitlement({ annual, joinedOn, year: year - 1, prorate: type.prorate }), used, Number(type.carry_over_max));
+  }
+  return { total: leaveEntitlement({ annual, joinedOn, year, prorate: type.prorate, carryIn }), carryIn };
+}
+
 export async function leaveOverview(c: Ctx) {
   need(c, 'leave:request');
   const emp = await myEmployee(c);
-  const types = await c.q.query<any>('select id, name, annual_days, paid from leave_types where archived_at is null order by name');
+  const types = await c.q.query<any>('select id, name, annual_days, paid, carry_over_max, prorate from leave_types where archived_at is null order by name');
   const year = new Date().getUTCFullYear();
   const used = await c.q.query<any>(`select leave_type_id, coalesce(sum(days),0) as d from leave_requests where employee_id = $1 and status = 'approved' and extract(year from start_date) = $2 group by 1`, [emp.id, year]);
   const pending = await c.q.query<any>(`select leave_type_id, coalesce(sum(days),0) as d from leave_requests where employee_id = $1 and status = 'pending' and extract(year from start_date) = $2 group by 1`, [emp.id, year]);
   const mine = await c.q.query<any>(`select r.id, t.name as type, r.start_date::text as s, r.end_date::text as e, r.days, r.status, r.decision_note from leave_requests r join leave_types t on t.id = r.leave_type_id where r.employee_id = $1 order by r.created_at desc limit 20`, [emp.id]);
-  const bal = types.map((t) => {
-    const ent = Number(t.annual_days), u = Number(used.find((x) => x.leave_type_id === t.id)?.d ?? 0), p = Number(pending.find((x) => x.leave_type_id === t.id)?.d ?? 0);
-    return { id: t.id, name: t.name, entitlement: ent, used: u, pending: p, remaining: ent > 0 ? ent - u - p : null };
-  });
+  const bal = await Promise.all(types.map(async (t) => {
+    const e = await entitlementFor(c.q, emp.id, t, year);
+    const ent = e.total, u = Number(used.find((x) => x.leave_type_id === t.id)?.d ?? 0), p = Number(pending.find((x) => x.leave_type_id === t.id)?.d ?? 0);
+    return { id: t.id, name: t.name, entitlement: ent, carryIn: e.carryIn, used: u, pending: p, remaining: Number(t.annual_days) > 0 ? ent - u - p : null };
+  }));
   return { balances: bal, requests: mine };
 }
 
@@ -421,8 +436,9 @@ export async function requestLeave(c: Ctx, i: { typeId: string; start: string; e
   if (overlap[0]) throw new UserError('You already have leave requested or approved on some of those dates.');
   if (Number(type.annual_days) > 0) {
     const year = Number(i.start.slice(0, 4));
+    const ent = (await entitlementFor(c.q, emp.id, type, year)).total;
     const used = Number((await c.q.query<any>(`select coalesce(sum(days),0) d from leave_requests where employee_id = $1 and leave_type_id = $2 and status in ('pending','approved') and extract(year from start_date) = $3`, [emp.id, i.typeId, year]))[0].d);
-    if (used + days > Number(type.annual_days)) throw new UserError(`Not enough ${type.name} balance: ${Number(type.annual_days) - used} day(s) left, you asked for ${days}.`);
+    if (used + days > ent) throw new UserError(`Not enough ${type.name} balance: ${Math.max(0, ent - used)} day(s) left, you asked for ${days}.`);
   }
   const r = await c.q.query<{ id: string }>(`insert into leave_requests (org_id, employee_id, leave_type_id, start_date, end_date, days, reason) values ($1,$2,$3,$4,$5,$6,$7) returning id`, [c.orgId, emp.id, i.typeId, i.start, i.end, days, i.reason?.trim() || null]);
   await audit(c.q, { orgId: c.orgId, actorUserId: c.userId, action: 'leave.requested', entity: 'leave_request', entityId: r[0].id, after: { type: type.name, start: i.start, end: i.end, days }, ip: c.ip, userAgent: c.userAgent });
@@ -459,14 +475,16 @@ export async function reviewLeave(c: Ctx, id: string, approve: boolean, note: st
   return rosterNote.trim();
 }
 
-export async function addLeaveType(c: Ctx, name: string, annualDays: number, paid: boolean) {
+export async function addLeaveType(c: Ctx, name: string, annualDays: number, paid: boolean, o: { carryOverMax?: number; prorate?: boolean } = {}) {
   need(c, 'leave:manage');
   if (name.trim().length < 2) throw new UserError('Enter a leave type name.');
   if (!(annualDays >= 0 && annualDays <= 365)) throw new UserError('Annual days must be between 0 and 365 (0 = not capped).');
-  await c.q.query('insert into leave_types (org_id, name, annual_days, paid) values ($1,$2,$3,$4)', [c.orgId, name.trim(), annualDays, paid]);
+  const carry = o.carryOverMax ?? 0;
+  if (!(carry >= 0 && carry <= 365)) throw new UserError('Carry-over must be between 0 and 365 days.');
+  await c.q.query('insert into leave_types (org_id, name, annual_days, paid, carry_over_max, prorate) values ($1,$2,$3,$4,$5,$6)', [c.orgId, name.trim(), annualDays, paid, carry, o.prorate ?? true]);
   await audit(c.q, { orgId: c.orgId, actorUserId: c.userId, action: 'leave_type.created', entity: 'leave_type', after: { name, annualDays, paid }, ip: c.ip, userAgent: c.userAgent });
 }
 
 export async function listLeaveTypes(q: Q) {
-  return q.query<any>('select id, name, annual_days, paid from leave_types where archived_at is null order by name');
+  return q.query<any>('select id, name, annual_days, paid, carry_over_max, prorate from leave_types where archived_at is null order by name');
 }

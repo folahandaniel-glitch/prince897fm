@@ -19,7 +19,9 @@ Universal, multi-tenant, configuration-driven enterprise platform by **Fodan Sof
 | Finance extras | Invoices and vendor bills with VAT and withholding tax, receivables/payables ageing, bank statement CSV import with match-and-reconcile, tax position |
 | Training | Courses, assignments, results with certificate expiry, mandatory-course gap report, due and expiry alerts |
 | Messaging | Every in-app notice is mirrored to email (opt-out per person) through an outbox; email via Resend, SMS via Termii (optional); password reset by email |
-| Leave | Public holidays (not counted as leave days) |
+| Leave | Public holidays (not counted as leave days), pro-rata for new joiners, capped carry-over |
+| Procurement | Purchase orders: raise, approve, confirm receipt (three different people), convert to a vendor bill |
+| Data protection | Bank account, tax id and pension PIN are encrypted at rest (AES-256-GCM, key from `APP_SECRET`); payslips keep only a masked form |
 | BackEnd (`/backend`) | Super Admin console: users, roles, feature switches, security, organisations, config. The Super Admin account is hidden from the Chairman and all staff, and can assist with the Chairman's approval queue |
 
 See `KNOWN_GAPS.md` for what is deliberately not implemented and what must be verified before real use.
@@ -35,7 +37,7 @@ With no `DATABASE_URL`, an embedded Postgres (PGlite) is stored in `.data/pg` an
 (`prince897` radio station, `gracechapel` church). Generated demo sign-in details are written to `.data/seed-credentials.txt` (git-ignored).
 
 ```bash
-npm test             # 228 tests
+npm test             # 237 tests
 npm run typecheck
 npm run build
 ```
@@ -49,7 +51,7 @@ npm run build
    | Variable | Value |
    |---|---|
    | `DATABASE_URL` | Postgres connection string. Connect as the table owner; the app switches to the `app_user` role inside each transaction so RLS applies. |
-   | `APP_SECRET` | Long random string (32+ chars). Encrypts MFA secrets. Changing it invalidates enrolled authenticators. |
+   | `APP_SECRET` | Long random string (32+ chars). Encrypts MFA secrets and payroll identifiers. **Never change or lose it**: authenticators and stored bank/tax details become unreadable. Back it up in a password manager. |
    | `CRON_SECRET` | Long random string; Vercel sends it to the cron routes. |
    | `DEFAULT_ORG_SLUG` | Optional, e.g. `prince897`: tenant pre-filled on the sign-in page. |
    | `APP_URL` | Public address of the deployment, e.g. `https://worksuite.example.com` (used in email links). |

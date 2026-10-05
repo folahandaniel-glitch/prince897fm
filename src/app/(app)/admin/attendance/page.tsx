@@ -25,7 +25,7 @@ async function assign(_p: unknown, f: FormData) {
 }
 async function leaveType(_p: unknown, f: FormData) {
   'use server';
-  return mutate(['/admin/attendance'], async (c) => { await addLeaveType(c, field(f, 'name'), Number(field(f, 'days')) || 0, field(f, 'paid') === 'on'); return 'Leave type added.'; });
+  return mutate(['/admin/attendance'], async (c) => { await addLeaveType(c, field(f, 'name'), Number(field(f, 'days')) || 0, field(f, 'paid') === 'on', { carryOverMax: Number(field(f, 'carry')) || 0, prorate: field(f, 'prorate') === 'on' }); return 'Leave type added.'; });
 }
 
 export default async function AttendanceSetup() {
@@ -67,9 +67,9 @@ export default async function AttendanceSetup() {
             <Field label="From" name="validFrom" type="date" /><Field label="To (optional)" name="validTo" type="date" /></div></ActionForm></section>
 
         <section className="card" aria-labelledby="lt"><h2 id="lt" className="font-semibold">Leave types</h2>
-          <ul className="mt-2 divide-y divide-line text-sm">{leaveTypes.map((t: any) => <li key={t.id} className="flex justify-between py-2"><span>{t.name}</span><span className="text-muted">{Number(t.annual_days) > 0 ? `${Number(t.annual_days)} days/year` : 'not capped'} · {t.paid ? 'paid' : 'unpaid'}</span></li>)}</ul>
+          <ul className="mt-2 divide-y divide-line text-sm">{leaveTypes.map((t: any) => <li key={t.id} className="flex justify-between py-2"><span>{t.name}</span><span className="text-muted">{Number(t.annual_days) > 0 ? `${Number(t.annual_days)} days/year` : 'not capped'} · {t.paid ? 'paid' : 'unpaid'}{Number(t.carry_over_max) > 0 ? ` · carry up to ${Number(t.carry_over_max)}` : ''}{t.prorate ? ' · pro-rata' : ''}</span></li>)}</ul>
           <ActionForm action={leaveType as any} submit="Add leave type" className="mt-4 border-t border-line pt-4"><div className="grid gap-x-4 sm:grid-cols-3"><Field label="Name" name="name" required /><Field label="Days per year (0 = not capped)" name="days" type="number" defaultValue="0" />
-            <label className="mt-7 flex items-center gap-2 text-sm"><input type="checkbox" name="paid" defaultChecked className="h-5 w-5" /> Paid</label></div></ActionForm></section>
+            <Field label="Carry-over limit (days)" name="carry" type="number" defaultValue="0" /><label className="mt-7 flex items-center gap-2 text-sm"><input type="checkbox" name="paid" defaultChecked className="h-5 w-5" /> Paid</label><label className="mt-7 flex items-center gap-2 text-sm"><input type="checkbox" name="prorate" defaultChecked className="h-5 w-5" /> Pro-rata for new joiners</label></div></ActionForm></section>
       </div>
     );
   });

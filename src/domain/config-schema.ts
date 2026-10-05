@@ -76,6 +76,7 @@ export const DEFAULT_NAV: Navigation = {
     { key: "finance-new", label: "New transaction", href: "/finance/new", icon: "plus", permission: "finance:create", group: "Finance", hidden: false, feature: "finance" },
     { key: "finance-invoices", label: "Invoices & bills", href: "/finance/invoices", icon: "doc", permission: "finance:view", group: "Finance", hidden: false, feature: "finance" },
     { key: "finance-ageing", label: "Ageing", href: "/finance/ageing", icon: "chart", permission: "finance:view", group: "Finance", hidden: false, feature: "finance" },
+    { key: "finance-orders", label: "Purchase orders", href: "/finance/orders", icon: "folder", permission: "finance:view", group: "Finance", hidden: false, feature: "finance" },
     { key: "finance-bank", label: "Bank reconciliation", href: "/finance/bank", icon: "coins", permission: "finance:reconcile", group: "Finance", hidden: false, feature: "finance" },
     { key: "finance-tax", label: "VAT & WHT", href: "/finance/tax", icon: "scale", permission: "finance:view", group: "Finance", hidden: false, feature: "finance" },
     { key: "finance-centre", label: "Financial centre", href: "/finance/overview", icon: "chart", permission: "finance:oversee", group: "Finance", hidden: false, feature: "finance" },

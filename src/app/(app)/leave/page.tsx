@@ -20,7 +20,7 @@ export default async function LeavePage() {
         <section aria-label="Balances" className="grid gap-3 sm:grid-cols-2">{o.balances.map((b) => (
           <div key={b.id} className="card !p-4"><p className="text-sm text-muted">{b.name}</p>
             <p className="text-2xl font-bold">{b.remaining === null ? 'Not capped' : `${b.remaining} days left`}</p>
-            <p className="text-xs text-muted">{b.entitlement > 0 ? `of ${b.entitlement} · ` : ''}{b.used} used · {b.pending} pending</p></div>))}</section>
+            <p className="text-xs text-muted">{b.entitlement > 0 ? `of ${b.entitlement}${b.carryIn > 0 ? ` (incl. ${b.carryIn} carried over)` : ''} · ` : ''}{b.used} used · {b.pending} pending</p></div>))}</section>
 
         <section className="card" aria-labelledby="req"><h2 id="req" className="font-semibold">Request leave</h2>
           <ActionForm action={request as any} submit="Send request" className="mt-3"><div className="grid gap-x-4 sm:grid-cols-3">

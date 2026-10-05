@@ -106,6 +106,28 @@ describe('leave carry-over and pro-rata in the app', () => {
   });
 });
 
+describe('purchase orders: partial deliveries', () => {
+  it('bills each delivery separately and closes when everything is billed', async () => {
+    const v = (await (await privileged()).query<any>(`insert into fin_parties (org_id, kind, name) values ($1,'vendor','Partial Ltd') returning id`, [ids.org]))[0].id;
+    const po = await as('officer', (c) => createOrder(c, { vendorId: v, description: 'Chairs x10', subtotal: '100,000.00' }));
+    await as('fm', (c) => approveOrder(c, po.id));
+    await expect(as('officer', (c) => billOrder(c, po.id, { categoryId: acct['5010'], vat: false, dueDate: today }))).rejects.toThrow(/received delivery/);
+    await as('accountant', (c) => receiveOrder(c, po.id, '4 chairs', '40,000.00'));
+    expect((await as('officer', (c) => getOrder(c, po.id)))!.status).toBe('part_received');
+    await expect(as('accountant', (c) => receiveOrder(c, po.id, 'too many', '70,000.00'))).rejects.toThrow(/still outstanding/);
+    const b1 = await as('officer', (c) => billOrder(c, po.id, { categoryId: acct['5010'], vat: false, dueDate: today }));
+    expect((await as('officer', (c) => getInvoice(c, b1.id))).inv.subtotalMinor).toBe(40_000_00);
+    await expect(as('officer', (c) => billOrder(c, po.id, { categoryId: acct['5010'], vat: false, dueDate: today }))).rejects.toThrow(/already been billed/);
+    await as('accountant', (c) => receiveOrder(c, po.id, 'the other 6'));
+    expect((await as('officer', (c) => getOrder(c, po.id)))!.status).toBe('received');
+    const b2 = await as('officer', (c) => billOrder(c, po.id, { categoryId: acct['5010'], vat: false, dueDate: today }));
+    expect((await as('officer', (c) => getInvoice(c, b2.id))).inv.subtotalMinor).toBe(60_000_00);
+    const done = (await as('officer', (c) => getOrder(c, po.id)))!;
+    expect([done.status, done.billedMinor, done.receivedMinor]).toEqual(['billed', 100_000_00, 100_000_00]);
+    await expect(as('accountant', (c) => receiveOrder(c, po.id, 'again'))).rejects.toThrow(/not yet fully received/);
+  });
+});
+
 describe('purchase orders', () => {
   let vendor: string; let po: { id: string; number: string };
   beforeAll(async () => { vendor = (await (await privileged()).query<any>(`insert into fin_parties (org_id, kind, name) values ($1,'vendor','Studio Supplies Ltd') returning id`, [ids.org]))[0].id; });
@@ -120,12 +142,12 @@ describe('purchase orders', () => {
     await expect(as('officer', (c) => receiveOrder(c, po.id, 'all there'))).rejects.toThrow(/Separation of duties/); // raiser cannot receive
     await expect(as('accountant', (c) => receiveOrder(c, po.id, ' '))).rejects.toThrow(/what was received/);
     await as('accountant', (c) => receiveOrder(c, po.id, 'All 40 cables, tested'));
-    await expect(as('officer', (c) => cancelOrder(c, po.id, 'changed my mind'))).rejects.toThrow(/not yet received/);
+    await expect(as('officer', (c) => cancelOrder(c, po.id, 'changed my mind'))).rejects.toThrow(/no delivery yet/);
     const inv = await as('officer', (c) => billOrder(c, po.id, { categoryId: acct['5010'], vat: true, dueDate: new Date(Date.now() + 20 * 86_400_000).toISOString().slice(0, 10) }));
     expect((await as('officer', (c) => getOrder(c, po.id)))!.status).toBe('billed');
     const d = await as('officer', (c) => getInvoice(c, inv.id));
     expect([d.inv.kind, d.inv.status, d.inv.subtotalMinor]).toEqual(['payable', 'pending', 90_000_00]);
-    await expect(as('officer', (c) => billOrder(c, po.id, { categoryId: acct['5010'], vat: false, dueDate: today }))).rejects.toThrow(/Only received/);
+    await expect(as('officer', (c) => billOrder(c, po.id, { categoryId: acct['5010'], vat: false, dueDate: today }))).rejects.toThrow(/received delivery/);
     await as('fm', (c) => approveInvoice(c, inv.id)); // the bill continues through the normal payable controls
   });
   it('can be cancelled before receipt and lists by status', async () => {

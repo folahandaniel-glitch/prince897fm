@@ -59,7 +59,7 @@ npm run build
    | `RESEND_API_KEY`, `MAIL_FROM` | Optional. Enables email delivery (notifications, password reset). Without them messages are queued then marked skipped; in-app notices still work. |
    | `TERMII_API_KEY`, `TERMII_SENDER` | Optional. Enables SMS delivery. |
    | `DB_SCHEMA` | Optional. Set to `worksuite` if you must share a database with another application: every WorkSuite table then lives in its own schema and nothing else is touched. Needs a direct (non-pooled) or session-mode connection string for the first deploy. A separate database is simpler and safer. |
-   | `SETUP_TOKEN` | Random string (16+ chars) that unlocks the one-time `/setup` page. |
+   | `SETUP_TOKEN` | You invent it: run `npm run secret` and paste the result (use a different value for each secret). | Random string (16+ chars) that unlocks the one-time `/setup` page. |
    | `SEED_DEMO` | Leave **unset** in production. |
 
 4. Deploy. Migrations in `migrations/` apply automatically on first request (advisory-locked, recorded in `schema_migrations`).

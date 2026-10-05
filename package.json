@@ -9,7 +9,8 @@
     "start": "next start",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "provision": "tsx scripts/provision.ts"
+    "provision": "tsx scripts/provision.ts",
+    "secret": "node scripts/secret.mjs"
   },
   "dependencies": {
     "@electric-sql/pglite": "^0.5.8",

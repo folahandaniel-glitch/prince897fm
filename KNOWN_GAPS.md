@@ -17,7 +17,7 @@
 
 ## Product
 - Email/SMS are delivered through the outbox only when providers are configured; there is no push notification, and no per-event channel preferences beyond the email on/off switch.
-- Finance: multi-currency is not built; purchase orders bill the full order amount (no partial deliveries). VAT and WHT rates are editable defaults to be confirmed by an accountant; WorkSuite records them on the ledger but does not file returns. Vendor bills have one approval (senior approver for large bills), not the full multi-step chain of transactions. Bank import is CSV only (no live bank feeds); matching is by exact amount and nearby date.
+- Finance: multi-currency is not built; purchase orders support partial deliveries and bills by value (no line items or quantities). VAT and WHT rates are editable defaults to be confirmed by an accountant; WorkSuite records them on the ledger but does not file returns. Vendor bills have one approval (senior approver for large bills), not the full multi-step chain of transactions. Bank import is CSV only (no live bank feeds); matching is by exact amount and nearby date.
 - Leave: public holidays exist (moveable ones are entered by hand); carry-over is a single yearly cap with no expiry date.
 - Training: records and certificates are tracked as data; there is no course content delivery or online assessment.
 - Rosters: shift cover (one-way) exists; two-way swaps and rotating patterns are not built.

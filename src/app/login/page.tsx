@@ -8,7 +8,7 @@ import { LoginForm } from './form';
 
 export const metadata = { title: 'Sign in' };
 // Statically generated and refreshed in the background: the sign-in page opens instantly from the edge cache.
-export const revalidate = 120;
+export const revalidate = 60;
 
 async function signIn(_prev: { error?: string } | null, data: FormData): Promise<{ error?: string } | null> {
   'use server';
@@ -26,6 +26,8 @@ async function signIn(_prev: { error?: string } | null, data: FormData): Promise
 /** Branding of the tenant that owns this deployment's sign-in page (DEFAULT_ORG_SLUG). Falls back to neutral defaults. */
 async function loginBranding(): Promise<{ b: Branding; slug: string }> {
   const slug = process.env.DEFAULT_ORG_SLUG ?? 'prince897';
+  // The build must never wait on (or write to) a database: it renders with neutral defaults, and the page refreshes with the tenant's branding at runtime.
+  if (process.env.NEXT_PHASE === 'phase-production-build') return { b: DEFAULT_BRANDING, slug };
   try {
     if (!process.env.DATABASE_URL && process.env.NODE_ENV === 'production' && process.env.SEED_DEMO !== 'force') return { b: DEFAULT_BRANDING, slug: '' };
     await boot();

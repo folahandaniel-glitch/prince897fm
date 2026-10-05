@@ -58,6 +58,7 @@ npm run build
    | `APP_URL` | Public address of the deployment, e.g. `https://worksuite.example.com` (used in email links). |
    | `RESEND_API_KEY`, `MAIL_FROM` | Optional. Enables email delivery (notifications, password reset). Without them messages are queued then marked skipped; in-app notices still work. |
    | `TERMII_API_KEY`, `TERMII_SENDER` | Optional. Enables SMS delivery. |
+   | `DB_SCHEMA` | Optional. Set to `worksuite` if you must share a database with another application: every WorkSuite table then lives in its own schema and nothing else is touched. Needs a direct (non-pooled) or session-mode connection string for the first deploy. A separate database is simpler and safer. |
    | `SETUP_TOKEN` | Random string (16+ chars) that unlocks the one-time `/setup` page. |
    | `SEED_DEMO` | Leave **unset** in production. |
 
@@ -86,3 +87,7 @@ PRINCE 89.7 FM uses the logo and colours from princefm897.com.ng. Sources are in
 2. In Vercel set `APP_SECRET_PREVIOUS` to the old value and redeploy (values stay readable with either key).
 3. From your computer, with `DATABASE_URL` set: `OLD_APP_SECRET=... NEW_APP_SECRET=... npx tsx scripts/rotate-secret.ts` (safe to re-run).
 4. Set `APP_SECRET` to the new value, remove `APP_SECRET_PREVIOUS`, redeploy.
+
+## Sharing a database with another project
+
+Best: give WorkSuite its own database (Neon: a new project is free). If you really must share, set `DB_SCHEMA=worksuite`. Without it, WorkSuite refuses to install into a database that already has tables named `users`, `organizations` or `sessions`, so it can never overwrite another application's data. Note that the `app_user` database role is created once per Postgres server.

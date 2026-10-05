@@ -67,7 +67,7 @@ npm run build
    DATABASE_URL=... APP_SECRET=... npx tsx scripts/provision.ts prince897 "PRINCE 89.7 FM" chairman@example.com radio you@example.com
    ```
 
-6. Cron jobs (`vercel.json`): attendance daily at 03:00 UTC, reports/CRM/tickets/documents sweep every 6 hours (needs Vercel Pro; on Hobby change to daily).
+6. Cron jobs (`vercel.json`): attendance at 03:00 UTC and the reports/CRM/tickets/documents/training/outbox sweep at 04:00 UTC, once a day so the free Hobby plan accepts them. On Vercel Pro you can change the second to `0 */6 * * *`. Email is also sent right after each action, so the sweep is only a backstop.
 7. Pick the Vercel function region closest to the database (for Lagos users: Europe or South Africa).
 
 ## Architecture in one page

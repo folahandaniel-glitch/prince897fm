@@ -21,18 +21,23 @@ export function normalizeDbUrl(raw: string): string {
   }
 }
 
+/** The registrable part of a host name (e.g. neon.tech): enough to recognise the provider without exposing the project's own address. */
+function domainOf(host: string): string { return host.split('.').slice(-2).join('.'); }
+
 function providerOf(host: string): string {
   if (/neon\.tech$/i.test(host)) return /-pooler\./i.test(host) ? 'Neon (pooled connection)' : 'Neon (direct connection)';
   if (/pooler\.supabase\.com$/i.test(host)) return 'Supabase (pooler)';
   if (/supabase\.co$/i.test(host)) return 'Supabase (direct connection)';
   if (/rds\.amazonaws\.com$/i.test(host)) return 'Amazon RDS';
   if (/vercel-storage\.com$/i.test(host)) return 'Vercel Postgres';
-  return 'your database provider';
+  return `a database at ${domainOf(host)}`;
 }
 
 /** Walks the connection step by step so the owner can see exactly where it fails. Never returns the URL, host name or password. */
 export async function checkDatabase(rawUrl: string | undefined): Promise<CheckReport> {
   const steps: CheckStep[] = [];
+  const e = process.env;
+  steps.push({ name: 'This deployment', ok: true, note: `${e.VERCEL_ENV ?? 'local'}${e.VERCEL_GIT_COMMIT_SHA ? ', commit ' + e.VERCEL_GIT_COMMIT_SHA.slice(0, 7) : ''}; database variable found: ${['DATABASE_URL', 'POSTGRES_URL', 'POSTGRES_PRISMA_URL', 'POSTGRES_URL_NON_POOLING'].filter((k) => !!e[k]).join(', ') || 'none'}` });
   if (!rawUrl?.trim()) return { provider: 'none', steps, hint: 'DATABASE_URL is empty. Add it in Vercel → Settings → Environment Variables, then redeploy.' };
   let u: URL;
   try { u = new URL(normalizeDbUrl(rawUrl)); } catch { return { provider: 'unknown', steps: [{ name: 'Read the connection string', ok: false, note: 'It is not a valid address. It should start with postgresql:// and contain user, password, host and database name.' }], hint: 'Copy the whole connection string again from your database provider.' }; }

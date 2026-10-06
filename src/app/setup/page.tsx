@@ -95,7 +95,7 @@ export default async function Setup() {
     console.error('[setup] start failed', e);
     failure = diagnose(e);
     tech = detail(e);
-    try { report = await checkDatabase(process.env.DATABASE_URL); } catch { report = null; }
+    try { report = await checkDatabase(process.env.DATABASE_URL || process.env.POSTGRES_URL || process.env.POSTGRES_PRISMA_URL); } catch { report = null; }
   }
   return (
     <main id="main" className="grid min-h-screen place-items-center bg-[#0b0b0b] p-4"><div className="card w-full max-w-lg">

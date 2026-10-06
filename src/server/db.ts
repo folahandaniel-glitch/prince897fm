@@ -29,7 +29,8 @@ const PATH_SQL = SCHEMA ? `select set_config('search_path', '"${SCHEMA}", public
 const g = globalThis as unknown as { __ws?: Promise<Driver> };
 
 async function createDriver(): Promise<Driver> {
-  const url = process.env.DATABASE_URL?.trim() ? normalizeDbUrl(process.env.DATABASE_URL) : undefined;
+  const raw = process.env.DATABASE_URL?.trim() || process.env.POSTGRES_URL?.trim() || process.env.POSTGRES_PRISMA_URL?.trim(); // Vercel's database integrations set POSTGRES_URL
+  const url = raw ? normalizeDbUrl(raw) : undefined;
   let driver: Driver;
   if (url) {
     const { default: postgres } = await import('postgres');

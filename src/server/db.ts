@@ -8,7 +8,8 @@ export interface Q {
 
 interface Driver {
   privileged: Q;
-  script(sql: string): Promise<void>;
+  /** One transaction that holds the migration lock (transaction-level, so it is safe behind poolers). `run` executes multi-statement SQL. */
+  migrateTx(fn: (run: (sql: string) => Promise<void>, q: Q) => Promise<void>): Promise<void>;
   tx<T>(fn: (q: Q) => Promise<T>): Promise<T>;
 }
 
@@ -36,7 +37,13 @@ async function createDriver(): Promise<Driver> {
     driver = {
       // With a dedicated schema every statement runs in a short transaction that first sets the search path.
       privileged: { query: async (s, p) => (PATH_SQL ? await sql.begin(async (t) => { await t.unsafe(PATH_SQL); return t.unsafe(s, p as any[]); }) : await sql.unsafe(s, p as any[])) as any },
-      script: async (text) => { await sql.unsafe(text); }, // callers include the search-path statement themselves, inside their own BEGIN
+      migrateTx: async (fn) => {
+        await sql.begin(async (t) => {
+          await t.unsafe('select pg_advisory_xact_lock(727001)'); // released automatically when this transaction ends
+          if (PATH_SQL) await t.unsafe(PATH_SQL);
+          await fn(async (text) => { await t.unsafe(text); }, { query: async (s, p) => (await t.unsafe(s, p as any[])) as any });
+        });
+      },
       tx: (fn) => sql.begin(async (t) => { if (PATH_SQL) await t.unsafe(PATH_SQL); return fn({ query: async (s, p) => (await t.unsafe(s, p as any[])) as any }); }) as any,
     };
   } else {
@@ -53,7 +60,9 @@ async function createDriver(): Promise<Driver> {
     if (SCHEMA) { await db.exec(`create schema if not exists "${SCHEMA}"; set search_path to "${SCHEMA}", public`); }
     driver = {
       privileged: { query: async (s, p) => (await db.query(s, p as any[])).rows as any },
-      script: async (text) => { await db.exec(text); },
+      migrateTx: async (fn) => {
+        await db.transaction(async (t) => { await fn(async (text) => { await t.exec(text); }, { query: async (s, p) => (await t.query(s, p as any[])).rows as any }); });
+      },
       tx: (fn) => db.transaction(async (t) => fn({ query: async (s, p) => (await t.query(s, p as any[])).rows as any })),
     };
   }
@@ -61,42 +70,43 @@ async function createDriver(): Promise<Driver> {
   return driver;
 }
 
+/** Applies pending migrations, all inside one transaction that holds the lock: a failure leaves the database exactly as it was. */
 async function migrate(d: Driver) {
-  // Serialise concurrent cold starts: only one instance applies migrations at a time.
-  await d.privileged.query('select pg_advisory_lock(727001)');
-  try { await migrateLocked(d); } finally { await d.privileged.query('select pg_advisory_unlock(727001)'); }
-}
-
-async function migrateLocked(d: Driver) {
-  if (SCHEMA) await d.privileged.query(`create schema if not exists "${SCHEMA}"`);
-  // Never install into a database that belongs to another application.
-  const first = (await d.privileged.query<{ m: string | null }>(`select to_regclass('schema_migrations')::text as m`))[0]?.m;
-  if (!first && !SCHEMA) {
-    const foreign = (await d.privileged.query<{ t: string | null }>(`select coalesce(to_regclass('users')::text, to_regclass('organizations')::text, to_regclass('sessions')::text) as t`))[0]?.t;
-    if (foreign) throw new Error('This database already contains tables from another application (' + foreign + '). WorkSuite will not touch it. Use a separate database, or set DB_SCHEMA=worksuite to keep WorkSuite in its own schema.');
-  }
-  await d.privileged.query('create table if not exists schema_migrations (name text primary key, applied_at timestamptz not null default now())');
-  const dir = path.join(process.cwd(), 'migrations');
-  const files = fs.readdirSync(dir).filter((f) => f.endsWith('.sql')).sort();
-  const done = new Set((await d.privileged.query<{ name: string }>('select name from schema_migrations')).map((r) => r.name));
-  for (const f of files) {
-    if (done.has(f)) continue;
-    let sqlText = fs.readFileSync(path.join(dir, f), 'utf8');
-    if (SCHEMA) sqlText = sqlText.replace(/schema public/g, `schema "${SCHEMA}"`).replace(/search_path = public/g, `search_path = "${SCHEMA}", public`);
-    try {
-      await d.script(`begin;\n${PATH_SQL ? `${PATH_SQL};\n` : ''}${sqlText}\ncommit;`);
-    } catch (e) {
-      try { await d.privileged.query('rollback'); } catch { /* nothing open */ }
-      throw new Error(`Migration ${f} failed: ${(e as Error).message}`);
+  await d.migrateTx(async (run, q) => {
+    if (SCHEMA) await run(`create schema if not exists "${SCHEMA}"`);
+    // Never install into a database that belongs to another application.
+    const first = (await q.query<{ m: string | null }>(`select to_regclass('schema_migrations')::text as m`))[0]?.m;
+    if (!first && !SCHEMA) {
+      const foreign = (await q.query<{ t: string | null }>(`select coalesce(to_regclass('users')::text, to_regclass('organizations')::text, to_regclass('sessions')::text) as t`))[0]?.t;
+      if (foreign) throw new Error('This database already contains tables from another application (' + foreign + '). WorkSuite will not touch it. Use a separate database, or set DB_SCHEMA=worksuite to keep WorkSuite in its own schema.');
     }
-    await d.privileged.query('insert into schema_migrations(name) values ($1)', [f]);
-  }
-  // The BackEnd shows applied migrations; the restricted application role may read (only) that list.
-  await d.privileged.query('grant select on schema_migrations to app_user');
+    await run('create table if not exists schema_migrations (name text primary key, applied_at timestamptz not null default now())');
+    const dir = path.join(process.cwd(), 'migrations');
+    const files = fs.readdirSync(dir).filter((f) => f.endsWith('.sql')).sort();
+    const done = new Set((await q.query<{ name: string }>('select name from schema_migrations')).map((r) => r.name));
+    for (const f of files) {
+      if (done.has(f)) continue;
+      let sqlText = fs.readFileSync(path.join(dir, f), 'utf8');
+      if (SCHEMA) sqlText = sqlText.replace(/schema public/g, `schema "${SCHEMA}"`).replace(/search_path = public/g, `search_path = "${SCHEMA}", public`);
+      try {
+        await run(sqlText);
+        await q.query('insert into schema_migrations(name) values ($1)', [f]);
+      } catch (e) {
+        throw new Error(`Migration ${f} failed: ${(e as Error).message}`);
+      }
+    }
+    // The BackEnd shows applied migrations; the restricted application role may read (only) that list.
+    await run('grant select on schema_migrations to app_user');
+    // On Postgres 16+ the role that creates app_user does not automatically get the right to switch to it. Grant it (ignored when already allowed).
+    await run(`do $$ begin execute 'grant app_user to current_user'; exception when others then null; end $$`);
+  });
 }
 
 function driver() {
-  return (g.__ws ??= createDriver());
+  const p = (g.__ws ??= createDriver());
+  // A failed start must not be remembered: the next request tries again (for example after an environment variable is corrected).
+  p.catch(() => { if (g.__ws === p) g.__ws = undefined; });
+  return p;
 }
 
 /** Unrestricted access (migrations, seeding, pre-authentication lookups). Never expose to request-scoped feature code. */

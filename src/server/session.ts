@@ -16,7 +16,9 @@ import type { Branding, Navigation, Terminology } from '../domain/config-schema'
 
 let booted: Promise<void> | null = null;
 export function boot() {
-  return (booted ??= (async () => { await ensureDatabase(); await seedDemoIfEmpty(); })());
+  const p = (booted ??= (async () => { await ensureDatabase(); await seedDemoIfEmpty(); })());
+  p.catch(() => { if (booted === p) booted = null; }); // do not remember a failed start: retry on the next request
+  return p;
 }
 
 export interface Page {

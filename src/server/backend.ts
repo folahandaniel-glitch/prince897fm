@@ -2,7 +2,7 @@ import { ALL_PERMISSIONS, SYSTEM_ROLES } from '../domain/policy';
 import { DEFAULT_BRANDING, DEFAULT_TERMS } from '../domain/config-schema';
 import { MODULE_PACKS, ORG_TEMPLATES } from '../domain/templates';
 import { audit } from './audit';
-import { hashPassword, oneTimePassword } from './auth';
+import { hashPassword, oneTimePassword, passwordProblem } from './auth';
 import { invalidateConfig } from './config';
 import { need, UserError, type Ctx } from './ctx';
 import { privileged, withTenant } from './db';
@@ -167,7 +167,7 @@ export async function installPack(c: Ctx, packKey: string) {
   await saveEntity(c, { key: p.key, name: p.name, plural: p.plural, description: p.description, prefix: p.prefix, fields: p.fields, statuses: p.statuses, transitions: p.transitions, access: p.access, publicSlug: p.publicForm?.slug ?? null, publicNotifyRole: p.publicForm?.notifyRole ?? null });
 }
 
-export interface ProvisionInput { slug: string; name: string; templateKey: string; adminEmail: string; adminName?: string; superAdminEmail?: string }
+export interface ProvisionInput { slug: string; name: string; templateKey: string; adminEmail: string; adminName?: string; superAdminEmail?: string; superAdminPassword?: string }
 
 /** Create a whole new organisation from a template (platform operators only). Returns one-time passwords to hand over securely. */
 export async function provisionOrganization(actor: { orgId: string; userId: string; ip?: string | null }, i: ProvisionInput) {
@@ -190,6 +190,8 @@ export async function createOrganization(i: ProvisionInput, byUserId: string | n
   if (!emailOk(i.adminEmail.trim())) throw new UserError('Enter the administrator\'s email.');
   const t = ORG_TEMPLATES.find((x) => x.key === i.templateKey);
   if (!t) throw new UserError('Choose a template.');
+  if (i.superAdminEmail?.trim() && i.superAdminEmail.trim().toLowerCase() === i.adminEmail.trim().toLowerCase()) throw new UserError('Use a different email for the Super Admin than for the administrator.');
+  if (i.superAdminPassword) { const problem = passwordProblem(i.superAdminPassword, { email: i.superAdminEmail }); if (problem) throw new UserError(problem); }
   const p = await privileged();
   if ((await p.query('select 1 from organizations where slug = $1', [slug]))[0]) throw new UserError('That organisation code is already taken.');
   const orgId = (await p.query<{ id: string }>('insert into organizations (slug, name, template) values ($1,$2,$3) returning id', [slug, i.name.trim(), t.key]))[0].id;
@@ -211,14 +213,14 @@ export async function createOrganization(i: ProvisionInput, byUserId: string | n
     await audit(q, { orgId, actorUserId: userId, action: 'organization.provisioned', entity: 'organization', entityId: orgId, after: { template: t.key, by: byUserId } });
   });
   let superPw: string | null = null;
-  if (i.superAdminEmail && emailOk(i.superAdminEmail.trim())) superPw = (await createSuperAdmin(orgId, i.superAdminEmail.trim(), null)).password;
+  if (i.superAdminEmail && emailOk(i.superAdminEmail.trim())) superPw = (await createSuperAdmin(orgId, i.superAdminEmail.trim(), null, '', i.superAdminPassword || undefined)).password;
   // install packs through a minimal admin context
   if (t.packs.length) {
     const adminId = (await p.query<{ id: string }>('select id from users where org_id = $1 and email = $2', [orgId, i.adminEmail.trim().toLowerCase()]))[0].id;
     const wanted = MODULE_PACKS.filter((m) => t.packs.includes(m.pack));
     await runAs(orgId, adminId, async (ac) => { for (const m of wanted) await saveEntity({ ...ac, subject: { ...ac.subject, grants: [{ roleKey: 'tenant_admin', permissions: ['builder:manage'], departmentIds: null, branchIds: null, validFrom: '2000-01-01', validTo: null }] } }, { key: m.key, name: m.name, plural: m.plural, description: m.description, prefix: m.prefix, fields: m.fields, statuses: m.statuses, transitions: m.transitions, access: m.access, publicSlug: m.publicForm?.slug ?? null, publicNotifyRole: m.publicForm?.notifyRole ?? null }); });
   }
-  return { orgId, slug, adminPassword: adminPw, superAdminPassword: superPw };
+  return { orgId, slug, adminPassword: adminPw, superAdminPassword: i.superAdminPassword ? null : superPw, superAdminChosePassword: !!i.superAdminPassword && !!superPw };
 }
 
 // ---- Configuration export / import --------------------------------------------------------------------------------------------------------------

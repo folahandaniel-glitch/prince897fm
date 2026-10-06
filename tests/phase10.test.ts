@@ -107,3 +107,23 @@ describe('changing the sign-in email', () => {
     expect((await login('fresh-org', 'root@fresh.example', 'long-enough-passphrase-1')).ok).toBe(false);
   });
 });
+
+describe('setup with a chosen Super Admin password', () => {
+  it('uses the chosen password (no forced change), refuses weak ones and refuses reusing the admin email', async () => {
+    const { createOrganization } = await import('../src/server/backend');
+    const { login } = await import('../src/server/auth');
+    const p = await privileged();
+    const base = { slug: 'chosen-org', name: 'Chosen', templateKey: 'blank', adminEmail: 'admin@chosen.example', superAdminEmail: 'owner@chosen.example' };
+    await expect(createOrganization({ ...base, superAdminPassword: 'short1!' }, null)).rejects.toThrow(/12 characters/);
+    await expect(createOrganization({ ...base, superAdminEmail: 'ADMIN@chosen.example', superAdminPassword: 'a-fine-long-passphrase-9' }, null)).rejects.toThrow(/different email/);
+    expect(await p.query(`select 1 from organizations where slug = 'chosen-org'`)).toHaveLength(0); // nothing was created by the refusals
+    const r = await createOrganization({ ...base, superAdminPassword: 'a-fine-long-passphrase-9' }, null);
+    expect(r.superAdminPassword).toBeNull();
+    expect(r.superAdminChosePassword).toBe(true);
+    const row = (await p.query<any>(`select must_change_password, hidden, platform_admin from users where email = 'owner@chosen.example'`))[0];
+    expect(row).toEqual({ must_change_password: false, hidden: true, platform_admin: true });
+    expect((await login('chosen-org', 'owner@chosen.example', 'a-fine-long-passphrase-9')).ok).toBe(true);
+    // the administrator still gets a one-time password that must be changed
+    expect((await p.query<any>(`select must_change_password from users where email = 'admin@chosen.example'`))[0].must_change_password).toBe(true);
+  });
+});

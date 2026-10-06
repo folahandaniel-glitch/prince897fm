@@ -127,3 +127,17 @@ describe('setup with a chosen Super Admin password', () => {
     expect((await p.query<any>(`select must_change_password from users where email = 'admin@chosen.example'`))[0].must_change_password).toBe(true);
   });
 });
+
+describe('repair of double-encoded JSON (migration 016)', () => {
+  it('turns JSON strings back into objects and leaves real objects and plain strings alone', async () => {
+    const fs = await import('node:fs');
+    const p = await privileged();
+    const org = (await p.query<any>(`select id from organizations where slug = 'prince897'`))[0].id;
+    await p.query(`insert into config_versions (org_id, kind, version, status, payload) values ($1,'branding',901,'superseded', to_jsonb($2::text))`, [org, JSON.stringify({ name: 'Broken', n: [1, 2] })]);
+    await p.query(`insert into config_versions (org_id, kind, version, status, payload) values ($1,'branding',902,'superseded', $2::jsonb)`, [org, JSON.stringify({ name: 'Fine' })]);
+    await p.query(`insert into config_versions (org_id, kind, version, status, payload) values ($1,'branding',903,'superseded', to_jsonb('just text'::text))`, [org]);
+    await p.query(fs.readFileSync('migrations/016_repair_json.sql', 'utf8'));
+    const rows = await p.query<any>(`select version, jsonb_typeof(payload) t, payload->>'name' name from config_versions where version in (901,902,903) order by version`);
+    expect(rows).toEqual([{ version: 901, t: 'object', name: 'Broken' }, { version: 902, t: 'object', name: 'Fine' }, { version: 903, t: 'string', name: null }]);
+  });
+});

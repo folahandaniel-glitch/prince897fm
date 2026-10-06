@@ -1,5 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
+import { normalizeDbUrl } from './dbcheck';
 
 /** Minimal driver-neutral query surface. Embedded Postgres (PGlite) in dev/test, `postgres` in production. */
 export interface Q {
@@ -28,12 +29,12 @@ const PATH_SQL = SCHEMA ? `select set_config('search_path', '"${SCHEMA}", public
 const g = globalThis as unknown as { __ws?: Promise<Driver> };
 
 async function createDriver(): Promise<Driver> {
-  const url = process.env.DATABASE_URL;
+  const url = process.env.DATABASE_URL?.trim() ? normalizeDbUrl(process.env.DATABASE_URL) : undefined;
   let driver: Driver;
   if (url) {
     const { default: postgres } = await import('postgres');
     // prepare:false keeps this compatible with transaction-mode poolers (Neon, Supabase, PgBouncer) used on serverless hosts.
-    const sql = postgres(url, { max: 5, prepare: false, idle_timeout: 20, connect_timeout: 15, onnotice: () => {} });
+    const sql = postgres(url, { max: 5, prepare: false, idle_timeout: 20, connect_timeout: 20, onnotice: () => {} });
     driver = {
       // With a dedicated schema every statement runs in a short transaction that first sets the search path.
       privileged: { query: async (s, p) => (PATH_SQL ? await sql.begin(async (t) => { await t.unsafe(PATH_SQL); return t.unsafe(s, p as any[]); }) : await sql.unsafe(s, p as any[])) as any },

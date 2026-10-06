@@ -93,3 +93,10 @@ PRINCE 89.7 FM uses the logo and colours from princefm897.com.ng. Sources are in
 ## Sharing a database with another project
 
 Best: give WorkSuite its own database (Neon: a new project is free). If you really must share, set `DB_SCHEMA=worksuite`. Without it, WorkSuite refuses to install into a database that already has tables named `users`, `organizations` or `sessions`, so it can never overwrite another application's data. Note that the `app_user` database role is created once per Postgres server.
+
+## If `/setup` shows a database error
+
+The page lists each step (read the string, find the host, reach the server) with a tick or cross, plus a hint. Common causes:
+- **Supabase direct string** (`db.<project>.supabase.co`): IPv6 only, which Vercel cannot use. Use the *Transaction pooler* string (host ends `pooler.supabase.com`).
+- **Neon**: copy the string from Connect → *Pooled connection*, make sure the project is not suspended, no IP allow-list is on.
+- A pasted string with quotes, spaces or `psql '…'` around it is cleaned automatically; `channel_binding` is removed and `sslmode=require` is added for you.

@@ -8,10 +8,12 @@ import { createSuperAdmin } from '@/server/seed';
 import { passwordProblem } from '@/server/auth';
 import { ORG_TEMPLATES } from '@/domain/templates';
 import { UserError } from '@/server/ctx';
+import { checkDatabase, type CheckReport } from '@/server/dbcheck';
 import { SetupForm } from './form';
 
 export const metadata = { title: 'First-time setup', robots: { index: false } };
 export const dynamic = 'force-dynamic';
+export const maxDuration = 60; // a sleeping database can take a while to wake up
 
 type S = { ok?: string; error?: string } | null;
 
@@ -26,6 +28,14 @@ function diagnose(e: unknown): { what: string; fix: string } {
   if (/another application/i.test(raw)) return { what: 'That database already belongs to another application.', fix: 'Use a separate, empty database for WorkSuite (or add DB_SCHEMA=worksuite).' };
   if (/Migration .* failed/i.test(raw)) return { what: 'Installing the database tables failed.', fix: 'Send this message to your developer: ' + raw };
   return { what: 'WorkSuite could not start.', fix: 'Send this message to your developer: ' + raw };
+}
+
+/** Technical detail with host names and addresses masked. */
+function detail(e: unknown): string {
+  const code = (e as { code?: string })?.code;
+  // Any word that looks like a host name, address or url (contains a dot, colon or slash) is hidden.
+  const msg = String((e as Error)?.message ?? e).split(' ').map((w) => (/[.:/@]/.test(w) && w.length > 5 ? '[hidden]' : w)).join(' ').slice(0, 300);
+  return `${code ? code + ': ' : ''}${msg}`;
 }
 
 /** One-time bootstrap for a fresh deployment: only works while SETUP_TOKEN is set. */
@@ -75,7 +85,7 @@ async function setup(_p: S, f: FormData): Promise<S> {
 
 export default async function Setup() {
   if (!process.env.SETUP_TOKEN) notFound();
-  let n = 0, needsSa = false, failure: { what: string; fix: string } | null = null;
+  let n = 0, needsSa = false, failure: { what: string; fix: string } | null = null, report: CheckReport | null = null, tech = '';
   try {
     await boot();
     const pq = await privileged();
@@ -84,6 +94,8 @@ export default async function Setup() {
   } catch (e) {
     console.error('[setup] start failed', e);
     failure = diagnose(e);
+    tech = detail(e);
+    try { report = await checkDatabase(process.env.DATABASE_URL); } catch { report = null; }
   }
   return (
     <main id="main" className="grid min-h-screen place-items-center bg-[#0b0b0b] p-4"><div className="card w-full max-w-lg">
@@ -91,6 +103,10 @@ export default async function Setup() {
       {failure ? (
         <div role="alert" className="mt-4 rounded-lg border border-red-300 bg-red-50 p-4 text-sm text-red-900 dark:border-red-500/40 dark:bg-red-500/10 dark:text-red-200">
           <p className="font-semibold">{failure.what}</p><p className="mt-1">{failure.fix}</p>
+          {report && <>
+            <ul className="mt-3 space-y-1">{report.steps.map((s) => <li key={s.name}>{s.ok ? '✅' : '❌'} {s.name}: {s.note}</li>)}</ul>
+            <p className="mt-2 font-medium">{report.hint}</p></>}
+          <p className="mt-3 break-words font-mono text-xs opacity-80">Technical detail: {tech}</p>
           <p className="mt-2 text-xs opacity-80">After fixing it, redeploy and reload this page.</p>
         </div>
       ) : (<>

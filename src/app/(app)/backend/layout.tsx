@@ -3,7 +3,7 @@ import { shell } from '@/server/session';
 import { can } from '@/domain/policy';
 import { redirect } from 'next/navigation';
 
-const TABS: [string, string][] = [['/backend', 'Overview'], ['/backend/users', 'Users'], ['/backend/roles', 'Roles'], ['/backend/features', 'Modules'], ['/backend/chairman', 'Assist Chairman'], ['/backend/security', 'Security'], ['/backend/config', 'Configuration'], ['/backend/organisations', 'Organisations']];
+const TABS: [string, string][] = [['/backend', 'Overview'], ['/backend/users', 'Users'], ['/backend/roles', 'Roles'], ['/backend/features', 'Modules'], ['/backend/chairman', 'Assist Chairman'], ['/backend/security', 'Security'], ['/backend/account', 'My account'], ['/backend/config', 'Configuration'], ['/backend/organisations', 'Organisations']];
 
 /** The BackEnd is reachable only by the Super Administrator. Everyone else is turned away before anything loads. */
 export default async function BackendLayout({ children }: { children: React.ReactNode }) {

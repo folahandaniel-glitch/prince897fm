@@ -135,3 +135,18 @@ export async function changePassword(userId: string, email: string, current: str
   await revokeUserSessions(userId, keepToken);
   return null;
 }
+
+/** Changes the address used to sign in. Needs the current password; other devices are signed out. Returns an error message or null. */
+export async function changeLoginEmail(userId: string, currentPassword: string, newEmailRaw: string, keepToken?: string): Promise<string | null> {
+  const q = await privileged();
+  const email = newEmailRaw.trim().toLowerCase();
+  if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email) || email.length > 254) return 'Enter a valid email address.';
+  const u = (await q.query<any>('select org_id, email, password_hash from users where id = $1', [userId]))[0];
+  if (!u || !verifyPassword(currentPassword, u.password_hash)) return 'Your current password is not correct.';
+  if (email === u.email) return 'That is already your sign-in email.';
+  if ((await q.query('select 1 from users where org_id = $1 and email = $2', [u.org_id, email]))[0]) return 'That email is already used by another account in this organisation.';
+  await q.query('update users set email = $2 where id = $1', [userId, email]);
+  await q.query('update employees set email = $2 where user_id = $1', [userId, email]);
+  await revokeUserSessions(userId, keepToken);
+  return null;
+}

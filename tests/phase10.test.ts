@@ -89,3 +89,21 @@ describe('Super Admin created after setup', () => {
     expect(row).toMatchObject({ email: 'root@fresh.example', hidden: true, platform_admin: true, must_change_password: true });
   });
 });
+
+describe('changing the sign-in email', () => {
+  it('needs the current password, refuses duplicates, and works for sign-in afterwards', async () => {
+    const { changeLoginEmail, login, hashPassword } = await import('../src/server/auth');
+    const p = await privileged();
+    const org = (await p.query<any>(`select id from organizations where slug = 'fresh-org'`))[0].id;
+    await p.query(`update users set password_hash = $2 where org_id = $1 and platform_admin`, [org, hashPassword('long-enough-passphrase-1')]);
+    const uid = (await p.query<any>('select id from users where org_id = $1 and platform_admin', [org]))[0].id;
+    expect(await changeLoginEmail(uid, 'wrong-password-here-1', 'new@fresh.example')).toMatch(/current password/);
+    expect(await changeLoginEmail(uid, 'long-enough-passphrase-1', 'not-an-email')).toMatch(/valid email/);
+    expect(await changeLoginEmail(uid, 'long-enough-passphrase-1', 'root@fresh.example')).toMatch(/already your/);
+    await p.query(`insert into users (org_id, email, password_hash) values ($1,'taken@fresh.example','x')`, [org]);
+    expect(await changeLoginEmail(uid, 'long-enough-passphrase-1', 'Taken@Fresh.Example')).toMatch(/already used/);
+    expect(await changeLoginEmail(uid, 'long-enough-passphrase-1', 'New@Fresh.Example')).toBeNull();
+    expect((await login('fresh-org', 'new@fresh.example', 'long-enough-passphrase-1')).ok).toBe(true);
+    expect((await login('fresh-org', 'root@fresh.example', 'long-enough-passphrase-1')).ok).toBe(false);
+  });
+});

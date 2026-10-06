@@ -20,8 +20,8 @@
 - Finance: multi-currency is not built; purchase orders support partial deliveries and bills by value (no line items or quantities). VAT and WHT rates are editable defaults to be confirmed by an accountant; WorkSuite records them on the ledger but does not file returns. Vendor bills have one approval (senior approver for large bills), not the full multi-step chain of transactions. Bank import is CSV only (no live bank feeds); matching is by exact amount and nearby date.
 - Leave: public holidays exist (moveable ones are entered by hand); carry-over is a single yearly cap with no expiry date.
 - Training: records and certificates are tracked as data; there is no course content delivery or online assessment.
-- Rosters: shift cover and two-way exchanges exist; rotating patterns are not built.
+- Rosters: shift cover, two-way exchanges and repeating rotations exist; there are no minimum-coverage rules yet.
 - Attendance: rotating QR and WebAuthn step-up not built; verify the HQ geofence radius on site.
 - Workflow builder is data-driven but has no visual designer. Search covers staff, tasks, departments, documents, clients, tickets and finance, each through that module's own access rules.
 - Wallboard TV/device testing not done.
-- Tenant custom domains and logo upload UI not built.
+- Tenant custom domains are not built (use Vercel's domain settings for the whole deployment). Logos and emblems can be uploaded (PNG/JPEG/WebP up to 1 MB); app-install icons still come from the generated set.

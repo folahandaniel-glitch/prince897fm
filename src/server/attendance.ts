@@ -1,7 +1,7 @@
 import crypto from 'node:crypto';
 import { carryOver, leaveEntitlement } from '../domain/leave';
 import {
-  addDays, classifyClockIn, countDays, detectRosterConflicts, evaluateLocation, impossibleTravel, localParts, toMin, workDateFor,
+  addDays, classifyClockIn, countDays, detectRosterConflicts, expandPattern, parsePattern, evaluateLocation, impossibleTravel, localParts, toMin, workDateFor,
   type ShiftDef,
 } from '../domain/attendance';
 import { can } from '../domain/policy';
@@ -487,4 +487,23 @@ export async function addLeaveType(c: Ctx, name: string, annualDays: number, pai
 
 export async function listLeaveTypes(q: Q) {
   return q.query<any>('select id, name, annual_days, paid, carry_over_max, prorate from leave_types where archived_at is null order by name');
+}
+
+/** Publishes a repeating rotation for one person. Each shift goes through the normal conflict checks (overlaps, rest, leave). */
+export async function assignPattern(c: Ctx, i: { employeeId: string; pattern: string; from: string; to: string }) {
+  if (!isDate(i.from) || !isDate(i.to) || i.to < i.from) throw new UserError('Choose a valid start and end date.');
+  if (addDays(i.from, 120) < i.to) throw new UserError('A rotation can cover at most about 17 weeks at a time.');
+  const shifts = await listShifts(c.q);
+  const parsed = parsePattern(i.pattern, shifts.map((s: any) => s.code));
+  if ('error' in parsed) throw new UserError(parsed.error);
+  const byCode = expandPattern(parsed.slots, i.from, i.to);
+  const created: string[] = [], blocked: string[] = [], warnings: string[] = [];
+  for (const [code, dates] of byCode) {
+    const shift = shifts.find((s: any) => s.code === code)!;
+    for (let k = 0; k < dates.length; k += 60) {
+      const r = await assignRoster(c, { employeeId: i.employeeId, shiftId: shift.id, dates: dates.slice(k, k + 60) });
+      created.push(...r.created); blocked.push(...r.blocked); warnings.push(...r.warnings);
+    }
+  }
+  return { created: created.sort(), blocked, warnings };
 }

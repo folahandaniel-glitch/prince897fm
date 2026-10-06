@@ -7,6 +7,8 @@ import path from 'node:path';
 const config = {
   serverExternalPackages: ['@electric-sql/pglite', 'postgres'],
   poweredByHeader: false,
+  // Uploads (documents up to 5 MB, logos, bank statements) arrive through server actions; the default limit is 1 MB.
+  experimental: { serverActions: { bodySizeLimit: '6mb' } },
   webpack(config) {
     config.resolve.alias['@'] = path.join(process.cwd(), 'src');
     return config;

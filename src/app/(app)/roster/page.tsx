@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { page, mutate, field } from '@/server/session';
-import { assignRoster, cancelRoster, listShifts, weekRoster } from '@/server/attendance';
+import { assignPattern, assignRoster, cancelRoster, listShifts, weekRoster } from '@/server/attendance';
 import { addDays } from '@/domain/attendance';
 import { need } from '@/server/ctx';
 import { ActionForm, Field, Select } from '@/components/forms';
@@ -22,6 +22,16 @@ async function assign(_p: unknown, f: FormData) {
     const parts = [`Published ${r.created.length} shift(s).`];
     if (r.warnings.length) parts.push(`Warnings: ${[...new Set(r.warnings)].join(' ')}`);
     if (r.blocked.length) parts.push(`Not published: ${r.blocked.join(' ')}`);
+    return parts.join(' ');
+  });
+}
+async function rotate(_p: unknown, f: FormData) {
+  'use server';
+  return mutate(['/roster'], async (c) => {
+    const r = await assignPattern(c, { employeeId: field(f, 'employeeId'), pattern: field(f, 'pattern'), from: field(f, 'from'), to: field(f, 'to') });
+    const parts = [`Published ${r.created.length} shift(s).`];
+    if (r.warnings.length) parts.push(`Warnings: ${[...new Set(r.warnings)].slice(0, 3).join(' ')}`);
+    if (r.blocked.length) parts.push(`Not published (${r.blocked.length}): ${r.blocked.slice(0, 3).join(' ')}`);
     return parts.join(' ');
   });
 }
@@ -61,6 +71,13 @@ export default async function RosterPage({ searchParams }: { searchParams: Promi
             <Select label="Shift" name="shiftId" required allowEmpty={false} options={shifts.map((s) => ({ value: s.id, label: `${s.name} (${s.start}–${s.end})` }))} />
             <label className="mt-7 flex items-center gap-2 text-sm"><input type="checkbox" name="weekdays" defaultChecked className="h-5 w-5" /> Weekdays only</label>
             <Field label="From" name="from" type="date" required defaultValue={start} /><Field label="To (optional)" name="to" type="date" defaultValue={addDays(start, 4)} /></div></ActionForm></section>
+
+        <section className="card" aria-labelledby="rot"><h2 id="rot" className="font-semibold">Repeating rotation</h2>
+          <p className="text-sm text-muted">One code per day of the cycle, repeated from the start date. For example <code>LN LN LN OFF OFF</code> is three of that shift then two days off. Codes: {shifts.map((s) => s.code).join(', ')}. Each day goes through the same conflict checks.</p>
+          <ActionForm action={rotate as any} submit="Publish rotation" className="mt-3"><div className="grid gap-x-4 sm:grid-cols-2">
+            <Select label="Employee" name="employeeId" required allowEmpty={false} options={grid.employees.map((e: any) => ({ value: e.id, label: e.full_name }))} />
+            <Field label="Cycle" name="pattern" required placeholder="e.g. AM AM AM OFF OFF" />
+            <Field label="Day 1 of the cycle" name="from" type="date" required defaultValue={start} /><Field label="Until" name="to" type="date" required defaultValue={addDays(start, 27)} /></div></ActionForm></section>
 
         {grid.entries.length > 0 && (
           <section className="card" aria-labelledby="ce"><h2 id="ce" className="font-semibold">Cancel a rostered shift</h2>

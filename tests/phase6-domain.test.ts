@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { ageingBucket, invoiceLines, parseBankCsv, settlementLines, splitCsv, suggestMatch, vatOn } from '../src/domain/invoices';
 import { isBalanced } from '../src/domain/finance';
 import { addMonths } from '../src/domain/training';
-import { countDays } from '../src/domain/attendance';
+import { countDays, expandPattern, parsePattern } from '../src/domain/attendance';
 
 const acc = { ar: 'ar', ap: 'ap', vatOut: 'vo', vatIn: 'vi', whtRecv: 'wr', whtPay: 'wp' };
 
@@ -95,5 +95,21 @@ describe('leave day counting with public holidays', () => {
     expect(countDays('2026-03-02', '2026-03-06', true, ['2026-03-04'])).toBe(4);
     expect(countDays('2026-03-07', '2026-03-08', true, [])).toBe(0);
     expect(countDays('2026-03-07', '2026-03-08', false, [])).toBe(2);
+  });
+});
+
+describe('rotation patterns', () => {
+  it('parses codes case-insensitively and treats OFF/X/- as days off', () => {
+    expect(parsePattern('am, AM  off - pm', ['AM', 'PM'])).toEqual({ slots: ['AM', 'AM', null, null, 'PM'] });
+    expect(parsePattern('AM ZZ', ['AM'])).toEqual({ error: expect.stringContaining('"ZZ" is not a shift code') });
+    expect(parsePattern('AM', ['AM'])).toEqual({ error: expect.stringContaining('2 to 28') });
+    expect(parsePattern('off off x', ['AM'])).toEqual({ error: expect.stringContaining('at least one working day') });
+  });
+  it('repeats the cycle from day 1 across the range', () => {
+    const m = expandPattern(['N', 'N', null], '2026-03-02', '2026-03-10');
+    expect(m.get('N')).toEqual(['2026-03-02', '2026-03-03', '2026-03-05', '2026-03-06', '2026-03-08', '2026-03-09']);
+    expect(expandPattern(['A', 'B'], '2026-03-02', '2026-03-05').get('B')).toEqual(['2026-03-03', '2026-03-05']);
+    expect(expandPattern([], '2026-03-02', '2026-03-05').size).toBe(0);
+    expect(expandPattern(['A'], '2026-03-05', '2026-03-02').size).toBe(0);
   });
 });

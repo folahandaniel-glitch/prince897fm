@@ -1,6 +1,7 @@
 import { page, mutate, field } from '@/server/session';
-import { configHistory, getDraft, publishDraft, rollbackTo, saveDraft } from '@/server/config';
-import { need } from '@/server/ctx';
+import { configHistory, getDraft, publishDraft, resolveConfig, rollbackTo, saveDraft } from '@/server/config';
+import { saveBrandImage } from '@/server/brand';
+import { need, UserError } from '@/server/ctx';
 import { DEFAULT_TERMS, type Branding, type Terminology } from '@/domain/config-schema';
 import { ActionForm, Field } from '@/components/forms';
 
@@ -11,12 +12,28 @@ async function brandingAction(_p: unknown, f: FormData) {
   'use server';
   const publish = field(f, 'intent') === 'publish';
   return mutate(['/admin/config', '/dashboard', '/employees'], async (c) => {
+    // Start from the current branding so the logo, emblem and app icons are kept; only the edited fields change.
+    const base = (await getDraft<Branding>(c.q, 'branding')) ?? (await resolveConfig(c.q, c.orgId)).branding;
     await saveDraft(c, 'branding', {
+      ...base,
       name: field(f, 'name'), shortName: field(f, 'shortName'), tagline: field(f, 'tagline'),
-      primary: field(f, 'primary'), secondary: field(f, 'secondary'), accent: field(f, 'accent'), logoUrl: '', footer: field(f, 'footer'),
+      primary: field(f, 'primary'), secondary: field(f, 'secondary'), accent: field(f, 'accent'), footer: field(f, 'footer'),
     });
     if (publish) { await publishDraft(c, 'branding', field(f, 'note') || undefined); return 'Published. Everyone sees the new branding now.'; }
     return 'Draft saved. Publish when ready.';
+  });
+}
+
+async function imageAction(_p: unknown, f: FormData) {
+  'use server';
+  return mutate(['/admin/config'], async (c) => {
+    let n = 0;
+    for (const kind of ['logo', 'mark'] as const) {
+      const file = f.get(kind);
+      if (file instanceof File && file.size > 0) { await saveBrandImage(c, kind, Buffer.from(await file.arrayBuffer())); n++; }
+    }
+    if (!n) throw new UserError('Choose an image to upload.');
+    return 'Uploaded into the branding draft. Publish the draft to show it to everyone.';
   });
 }
 
@@ -68,6 +85,13 @@ export default async function ConfigPage() {
             </div>
             <label className="mt-1 flex items-center gap-2 text-sm"><input type="checkbox" name="intent" value="publish" className="h-5 w-5" /> Publish immediately after saving</label>
           </ActionForm>
+        </section>
+
+        <section className="card" aria-labelledby="i-h">
+          <h2 id="i-h" className="font-semibold">Logo and emblem</h2>
+          <p className="text-sm text-muted">PNG, JPEG or WebP up to 1 MB. The logo is the wide version (sign-in page, sidebar); the emblem is the small square one (mobile header). Uploads go into the branding draft: publish it above to go live.</p>
+          <div className="mt-3 flex flex-wrap items-center gap-4">{bDraft.logoUrl && /* eslint-disable-next-line @next/next/no-img-element */ <img src={bDraft.logoUrl} alt="Current logo" className="h-12 w-auto rounded bg-[#111] p-1" />}{bDraft.markUrl && /* eslint-disable-next-line @next/next/no-img-element */ <img src={bDraft.markUrl} alt="Current emblem" className="h-12 w-auto rounded bg-[#111] p-1" />}</div>
+          <ActionForm action={imageAction as any} submit="Upload" tone="ghost" className="mt-3"><div className="grid gap-x-4 sm:grid-cols-2"><div className="mb-3"><label className="label" htmlFor="logo">Logo (wide)</label><input id="logo" name="logo" type="file" accept="image/png,image/jpeg,image/webp" className="input py-2" /></div><div className="mb-3"><label className="label" htmlFor="mark">Emblem (square)</label><input id="mark" name="mark" type="file" accept="image/png,image/jpeg,image/webp" className="input py-2" /></div></div></ActionForm>
         </section>
 
         <section className="card" aria-labelledby="t-h">

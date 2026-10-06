@@ -128,3 +128,34 @@ export function countDays(start: string, end: string, excludeWeekends = true, ho
   }
   return n;
 }
+
+/**
+ * Expands a repeating rotation (e.g. "N N N OFF OFF") over a date range. `slots` holds one shift code per day of the cycle,
+ * or null for a day off. Day 1 of the cycle falls on `from`. Returns the dates for each shift code, in order.
+ */
+export function expandPattern(slots: (string | null)[], from: string, to: string): Map<string, string[]> {
+  const out = new Map<string, string[]>();
+  if (slots.length === 0) return out;
+  let i = 0;
+  for (let d = from; d <= to; d = addDays(d, 1), i++) {
+    const code = slots[i % slots.length];
+    if (code) (out.get(code) ?? out.set(code, []).get(code)!).push(d);
+  }
+  return out;
+}
+
+/** Parses "LN, LN, off, -" into shift codes; OFF, X and - mean a day off. Returns an error message when a code is unknown. */
+export function parsePattern(text: string, knownCodes: string[]): { slots: (string | null)[] } | { error: string } {
+  const parts = text.split(/[\s,;]+/).map((s) => s.trim()).filter(Boolean);
+  if (parts.length < 2 || parts.length > 28) return { error: 'Describe a cycle of 2 to 28 days, for example: N N N OFF OFF.' };
+  const known = new Map(knownCodes.map((c) => [c.toLowerCase(), c]));
+  const slots: (string | null)[] = [];
+  for (const p of parts) {
+    if (['off', 'x', '-', 'rest'].includes(p.toLowerCase())) { slots.push(null); continue; }
+    const c = known.get(p.toLowerCase());
+    if (!c) return { error: `"${p}" is not a shift code. Known codes: ${knownCodes.join(', ')} (use OFF for a day off).` };
+    slots.push(c);
+  }
+  if (slots.every((s) => s === null)) return { error: 'The pattern needs at least one working day.' };
+  return { slots };
+}

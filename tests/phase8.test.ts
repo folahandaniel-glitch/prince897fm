@@ -3,7 +3,7 @@ import { privileged, withTenant } from '../src/server/db';
 import { seedOrganization, TEMPLATES } from '../src/server/seed';
 import { runAs } from '../src/server/ctx';
 import { ForbiddenError } from '../src/domain/policy';
-import { assignRoster } from '../src/server/attendance';
+import { assignPattern, assignRoster } from '../src/server/attendance';
 import { cancelSwap, colleagueReply, colleagueShifts, colleagues, decideSwap, mySwaps, myShifts, requestSwap, swapQueue } from '../src/server/swaps';
 import { rotateSecrets } from '../src/server/rotate';
 import { decryptSecret, encryptSecret, encryptWith, decryptWith } from '../src/server/mfa';
@@ -136,6 +136,21 @@ describe('two-way shift exchange', () => {
     const rows = await withTenant(ids.org, (q) => q.query<any>(`select employee_id, work_date::text d from roster_entries where work_date = $1 and superseded_at is null and status = 'published'`, [f1]));
     expect(rows.map((r: any) => r.employee_id)).toEqual([ids.presenterEmp]); // untouched
     expect(await as('presenter', (c) => colleagueShifts(c))).not.toBeUndefined();
+  });
+});
+
+describe('rotation pattern publishing', () => {
+  it('publishes the cycle, blocks clashes and reports them', async () => {
+    const p = await privileged();
+    const code = (await p.query<any>('select code from shifts where id = $1', [ids.shift]))[0].code;
+    const from = addDaysIso(today, 40);
+    await as('hr', (c) => assignRoster(c, { employeeId: ids.mateEmp, shiftId: ids.shift, dates: [addDaysIso(from, 1)] })); // already working day 2
+    const r = await as('hr', (c) => assignPattern(c, { employeeId: ids.mateEmp, pattern: `${code} ${code} OFF`, from, to: addDaysIso(from, 5) }));
+    expect(r.created).toEqual([from, addDaysIso(from, 3), addDaysIso(from, 4)]); // days 1, 4, 5 (day 2 already rostered, day 3 and 6 off)
+    expect(r.blocked.length).toBe(1);
+    await expect(as('hr', (c) => assignPattern(c, { employeeId: ids.mateEmp, pattern: 'NOPE NOPE', from, to: from }))).rejects.toThrow(/not a shift code/);
+    await expect(as('hr', (c) => assignPattern(c, { employeeId: ids.mateEmp, pattern: `${code} OFF`, from, to: addDaysIso(from, 400) }))).rejects.toThrow(/17 weeks/);
+    await expect(as('presenter', (c) => assignPattern(c, { employeeId: ids.mateEmp, pattern: `${code} OFF`, from, to: from }))).rejects.toBeInstanceOf(ForbiddenError);
   });
 });
 

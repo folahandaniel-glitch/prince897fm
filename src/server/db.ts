@@ -35,7 +35,11 @@ async function createDriver(): Promise<Driver> {
   if (url) {
     const { default: postgres } = await import('postgres');
     // prepare:false keeps this compatible with transaction-mode poolers (Neon, Supabase, PgBouncer) used on serverless hosts.
-    const sql = postgres(url, { max: 5, prepare: false, idle_timeout: 20, connect_timeout: 20, onnotice: () => {} });
+    const sql = postgres(url, {
+      max: Number(process.env.DB_POOL_MAX) || 5, prepare: false, idle_timeout: 20, connect_timeout: 20, onnotice: () => {},
+      // The application passes JSON as already-serialised text (value::jsonb). The driver would otherwise encode that string a second time and store a JSON string instead of an object.
+      types: { json: { to: 114, from: [114, 3802], serialize: (x: unknown) => (typeof x === 'string' ? x : JSON.stringify(x)), parse: (x: string) => JSON.parse(x) } },
+    });
     driver = {
       // With a dedicated schema every statement runs in a short transaction that first sets the search path.
       privileged: { query: async (s, p) => (PATH_SQL ? await sql.begin(async (t) => { await t.unsafe(PATH_SQL); return t.unsafe(s, p as any[]); }) : await sql.unsafe(s, p as any[])) as any },

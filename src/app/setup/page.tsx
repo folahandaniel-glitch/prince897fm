@@ -5,7 +5,7 @@ import { privileged } from '@/server/db';
 import { boot } from '@/server/session';
 import { createOrganization } from '@/server/backend';
 import { createSuperAdmin } from '@/server/seed';
-import { passwordProblem } from '@/server/auth';
+import { hashPassword, passwordProblem, revokeUserSessions } from '@/server/auth';
 import { ORG_TEMPLATES } from '@/domain/templates';
 import { UserError } from '@/server/ctx';
 import { checkDatabase, type CheckReport } from '@/server/dbcheck';
@@ -54,6 +54,20 @@ async function setup(_p: S, f: FormData): Promise<S> {
   if (!ok) return { error: 'The setup token is not correct.' };
   const orgCount = Number((await p.query<any>('select count(*)::int n from organizations'))[0].n);
   const chosen = String(f.get('sapw') ?? '');
+  if (String(f.get('mode') ?? '') === 'resetsa') {
+    // Recovery: set a new password for the existing Super Admin. Same token, same rate limit.
+    const slug = String(f.get('slug') ?? '').trim().toLowerCase();
+    const email = String(f.get('sa') ?? '').trim().toLowerCase();
+    const u = (await p.query<any>('select u.id from users u join organizations o on o.id = u.org_id where o.slug = $1 and u.email = $2 and u.platform_admin', [slug, email]))[0];
+    if (!u) return { error: 'No Super Admin with that email exists in that organisation. Check the organisation code and the full email (including .com).' };
+    if (!chosen) return { error: 'Type the new password.' };
+    const problem = passwordProblem(chosen, { email });
+    if (problem) return { error: problem };
+    await p.query('update users set password_hash = $2, must_change_password = false, password_changed_at = now(), status = $3 where id = $1', [u.id, hashPassword(chosen), 'active']);
+    await p.query('delete from login_attempts where key = $1', [`${slug}:${email}`]);
+    await revokeUserSessions(u.id);
+    return { ok: `Password changed for ${email}. Sign in at /login (organisation code ${slug}) or use the BackEnd link in the footer.` };
+  }
   if (String(f.get('mode') ?? '') === 'superadmin') {
     // Recovery path: add the hidden Super Admin to an existing organisation that has none. Needs the same token.
     const slug = String(f.get('slug') ?? '').trim().toLowerCase();

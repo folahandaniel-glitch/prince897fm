@@ -27,7 +27,19 @@ export function SetupForm({ action, templates, done, needsSuperAdmin }: { action
       <p role="alert" className="min-h-5 text-sm text-red-700 dark:text-red-400">{s?.error}</p>
       <button disabled={pending} className="btn-primary w-full">{pending ? 'Creating…' : 'Create Super Admin'}</button></form>
   );
-  if (done) return <p role="status" className="mt-5 text-sm">Setup is already complete. <a className="underline" href="/login">Go to sign in</a>.</p>;
+  if (done) return (
+    <div className="mt-5 space-y-5">
+      <p role="status" className="text-sm">Setup is already complete. <a className="underline" href="/login">Go to sign in</a>.</p>
+      <form action={run} className="space-y-3 border-t border-line pt-5"><input type="hidden" name="mode" value="resetsa" />
+        <h2 className="font-semibold">Forgot the Super Admin password?</h2>
+        <p className="text-sm text-muted">Set a new one here. You need the setup token.</p>
+        <F id="token" label="Setup token" type="password" /><F id="slug" label="Organisation code" def="prince897" />
+        <F id="sa" label="Super Admin email (full address)" type="email" />
+        <F id="sapw" label="New password" type="password" hint="At least 12 characters." />
+        <p role="alert" className="min-h-5 text-sm text-red-700 dark:text-red-400">{s?.error}</p>
+        <button disabled={pending} className="btn-primary w-full">{pending ? 'Saving…' : 'Set new password'}</button></form>
+    </div>
+  );
   return (
     <form action={run} className="mt-5 space-y-3">
       <F id="token" label="Setup token" type="password" />

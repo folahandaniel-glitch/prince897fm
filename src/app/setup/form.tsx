@@ -2,14 +2,25 @@
 import { useActionState } from 'react';
 
 type S = { ok?: string; error?: string } | null;
-export function SetupForm({ action, templates, done }: { action: (p: S, d: FormData) => Promise<S>; templates: { value: string; label: string }[]; done: boolean }) {
-  const [s, run, pending] = useActionState(action, null);
-  if (s?.ok) return <pre role="status" className="mt-5 whitespace-pre-wrap rounded-lg border border-line bg-surface p-4 text-sm">{s.ok}</pre>;
-  // The page re-renders after the action succeeds (setup is then complete), so the one-time passwords stay on screen from client state.
-  if (done) return <p role="status" className="mt-5 text-sm">Setup is already complete. <a className="underline" href="/login">Go to sign in</a>.</p>;
-  const F = ({ id, label, type = 'text', hint, req = true, def }: { id: string; label: string; type?: string; hint?: string; req?: boolean; def?: string }) => (
+
+function F({ id, label, type = 'text', hint, req = true, def }: { id: string; label: string; type?: string; hint?: string; req?: boolean; def?: string }) {
+  return (
     <div><label className="label" htmlFor={id}>{label}{req && <span aria-hidden> *</span>}</label><input id={id} name={id} type={type} required={req} defaultValue={def} autoCapitalize="none" autoComplete="off" className="input" />{hint && <p className="mt-1 text-xs text-muted">{hint}</p>}</div>
   );
+}
+
+export function SetupForm({ action, templates, done, needsSuperAdmin }: { action: (p: S, d: FormData) => Promise<S>; templates: { value: string; label: string }[]; done: boolean; needsSuperAdmin?: boolean }) {
+  const [s, run, pending] = useActionState(action, null);
+  // The page re-renders after an action succeeds, so one-time passwords stay on screen from this component's state.
+  if (s?.ok) return <pre role="status" className="mt-5 whitespace-pre-wrap rounded-lg border border-line bg-surface p-4 text-sm">{s.ok}</pre>;
+  if (done && needsSuperAdmin) return (
+    <form action={run} className="mt-5 space-y-3"><input type="hidden" name="mode" value="superadmin" />
+      <p className="text-sm">Your organisation exists but has no hidden Super Admin yet. Create one to use the BackEnd.</p>
+      <F id="token" label="Setup token" type="password" /><F id="slug" label="Organisation code" def="prince897" /><F id="sa" label="Super Admin email" type="email" hint="Use an address that is not already an account in this organisation." />
+      <p role="alert" className="min-h-5 text-sm text-red-700 dark:text-red-400">{s?.error}</p>
+      <button disabled={pending} className="btn-primary w-full">{pending ? 'Creating…' : 'Create Super Admin'}</button></form>
+  );
+  if (done) return <p role="status" className="mt-5 text-sm">Setup is already complete. <a className="underline" href="/login">Go to sign in</a>.</p>;
   return (
     <form action={run} className="mt-5 space-y-3">
       <F id="token" label="Setup token" type="password" />

@@ -78,3 +78,14 @@ describe('logo upload', () => {
     expect(d.logoUrl).toMatch(/^\/api\/brand\/prince897\/logo/);
   });
 });
+
+describe('Super Admin created after setup', () => {
+  it('is hidden, platform-level, and must change the one-time password at first sign-in', async () => {
+    const { createSuperAdmin } = await import('../src/server/seed');
+    const org = (await (await privileged()).query<any>(`insert into organizations (slug, name) values ('fresh-org','Fresh') returning id`))[0].id;
+    const r = await createSuperAdmin(org, 'Root@Fresh.Example', null);
+    expect(r.password.length).toBeGreaterThanOrEqual(16);
+    const row = (await (await privileged()).query<any>('select email, hidden, platform_admin, must_change_password from users where id = $1', [r.userId]))[0];
+    expect(row).toMatchObject({ email: 'root@fresh.example', hidden: true, platform_admin: true, must_change_password: true });
+  });
+});

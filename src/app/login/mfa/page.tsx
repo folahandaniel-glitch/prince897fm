@@ -15,7 +15,9 @@ async function verify(_p: { error?: string } | null, data: FormData): Promise<{ 
   const r = await completeMfa(c.get(SESSION_COOKIE)?.value, String(data.get('code') ?? ''), h.get('x-forwarded-for'));
   if (!r.ok) return { error: r.error };
   c.set(SESSION_COOKIE, c.get(SESSION_COOKIE)!.value, { httpOnly: true, sameSite: 'lax', secure: process.env.NODE_ENV === 'production', path: '/', maxAge: r.maxAgeSec });
-  redirect('/dashboard');
+  const next = c.get('ws_next')?.value;
+  c.delete({ name: 'ws_next', path: '/login' });
+  redirect(next && /^\/(backend|dashboard)(\/[a-z0-9\-/]*)?$/.test(next) ? next : '/dashboard');
 }
 
 export default function MfaPage() {

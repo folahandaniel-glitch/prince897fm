@@ -155,7 +155,7 @@ export async function createSuperAdmin(orgId: string, email: string, creds: stri
   const pw = strongPassword();
   const roleDef = SYSTEM_ROLES.find((r) => r.key === 'super_admin')!;
   const role = (await p.query<{ id: string }>('insert into roles (org_id, key, name, permissions, is_system, hidden) values ($1,$2,$3,$4,true,true) returning id', [orgId, roleDef.key, roleDef.name, roleDef.permissions]))[0].id;
-  const [{ id: userId }] = await p.query<{ id: string }>('insert into users (org_id, email, password_hash, hidden, platform_admin) values ($1,$2,$3,true,true) returning id', [orgId, email.toLowerCase(), hashPassword(pw)]);
+  const [{ id: userId }] = await p.query<{ id: string }>('insert into users (org_id, email, password_hash, hidden, platform_admin, must_change_password) values ($1,$2,$3,true,true,$4) returning id', [orgId, email.toLowerCase(), hashPassword(pw), creds === null]);
   const [{ n }] = await p.query<{ n: number }>('select count(*)::int n from employees where org_id = $1', [orgId]);
   await p.query(
     `insert into employees (org_id, user_id, employee_no, full_name, email, joined_on, hidden) values ($1,$2,$3,'Super Administrator',$4, current_date, true)`,

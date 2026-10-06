@@ -40,7 +40,7 @@ With no `DATABASE_URL`, an embedded Postgres (PGlite) is stored in `.data/pg` an
 (`prince897` radio station, `gracechapel` church). Generated demo sign-in details are written to `.data/seed-credentials.txt` (git-ignored).
 
 ```bash
-npm test             # 258 tests
+npm test             # 259 tests
 npm run typecheck
 npm run build
 ```
@@ -65,7 +65,7 @@ npm run build
    | `SEED_DEMO` | Leave **unset** in production. |
 
 4. Deploy. Migrations in `migrations/` apply automatically on first request (advisory-locked, recorded in `schema_migrations`).
-5. Create your organisation: open `https://<your-site>/setup`, enter the `SETUP_TOKEN`, the organisation details, the Chairman's/administrator's email and (optionally) your hidden Super Admin email. The page shows one-time passwords once; sign in at `/login` with the organisation code and change the password when asked. `/setup` switches itself off as soon as an organisation exists. (Command-line alternative: `npx tsx scripts/provision.ts prince897 "PRINCE 89.7 FM" chairman@example.com radio you@example.com` with `DATABASE_URL` and `APP_SECRET` set.)
+5. Create your organisation: open `https://<your-site>/setup`, enter the `SETUP_TOKEN`, the organisation details, the Chairman's/administrator's email and (optionally) your hidden Super Admin email. The page shows one-time passwords once; sign in at `/login` with the organisation code and change the password when asked. `/setup` switches itself off as soon as an organisation exists (if you forgot the Super Admin email, `/setup` offers a one-time "Create Super Admin" form until one exists). The Super Admin signs in at `/login` like everyone else, or via the tiny **BackEnd** link under the footer, and must change the one-time password first. (Command-line alternative: `npx tsx scripts/provision.ts prince897 "PRINCE 89.7 FM" chairman@example.com radio you@example.com` with `DATABASE_URL` and `APP_SECRET` set.)
 
 6. Cron jobs (`vercel.json`): attendance at 03:00 UTC and the reports/CRM/tickets/documents/training/outbox sweep at 04:00 UTC, once a day so the free Hobby plan accepts them. On Vercel Pro you can change the second to `0 */6 * * *`. Email is also sent right after each action, so the sweep is only a backstop.
 7. Pick the Vercel function region closest to the database (for Lagos users: Europe or South Africa).

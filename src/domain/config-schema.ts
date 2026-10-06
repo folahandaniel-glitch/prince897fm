@@ -88,6 +88,7 @@ export const DEFAULT_NAV: Navigation = {
     { key: "finance-setup", label: "Finance setup", href: "/finance/setup", icon: "gear", permission: "finance:configure", group: "Finance", hidden: false, feature: "finance" },
     { key: "announce", label: "Announcements", href: "/announcements", icon: "bell", permission: "announcement:post", group: "Administration", hidden: false },
     { key: "structure", label: "Structure", href: "/admin/structure", icon: "tree", permission: "structure:manage", group: "Administration", hidden: false },
+    { key: "branches", label: "Branches & locations", href: "/admin/branches", icon: "pin", permission: "structure:manage", group: "Administration", hidden: false },
     { key: "attendance-setup", label: "Shifts & workplaces", href: "/admin/attendance", icon: "pin", permission: "attendance:manage", group: "Administration", hidden: false, feature: "attendance" },
     { key: "report-setup", label: "Report templates", href: "/admin/reports", icon: "doc", permission: "report:manage", group: "Administration", hidden: false, feature: "reports" },
     { key: "builder", label: "Builder", href: "/builder", icon: "grid", permission: "builder:manage", group: "Administration", hidden: false, feature: "builders" },

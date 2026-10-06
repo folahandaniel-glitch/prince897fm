@@ -1,7 +1,6 @@
 import Link from 'next/link';
 import { page, mutate } from '@/server/session';
 import { dashboardStats, markNotificationsRead, myNotifications } from '@/server/hr';
-import { activeAnnouncements } from '@/server/calendar';
 import { followUpsDue } from '@/server/crm';
 import { term } from '@/domain/config-schema';
 import { ActionForm } from '@/components/forms';
@@ -21,7 +20,7 @@ const greeting = (tz: string) => { const h = Number(new Intl.DateTimeFormat('en-
 export default async function Dashboard() {
   return page(async (p) => {
     const stats = p.allowed('employee:view') ? await dashboardStats(p.ctx) : null;
-    const [notes, notices, follow] = await Promise.all([myNotifications(p.ctx), activeAnnouncements(p.ctx), p.feature('crm') ? followUpsDue(p.ctx, 0) : Promise.resolve([])]);
+    const [notes, follow] = await Promise.all([myNotifications(p.ctx), p.feature('crm') ? followUpsDue(p.ctx, 0) : Promise.resolve([])]);
     const emp = term(p.terms, 'employee', 'plural');
     const tiles = [
       ['/attendance', 'clock', 'Clock in / out', 'Attendance and exceptions', 'attendance:clock', 'attendance'],
@@ -38,7 +37,6 @@ export default async function Dashboard() {
       <div className="space-y-6">
         <section className="hero"><p className="text-sm text-white/80">{greeting(p.org.timezone)}</p><h1 className="text-2xl font-bold sm:text-3xl">{p.email.split('@')[0].replace(/[._]/g, ' ')}</h1><p className="mt-1 text-sm text-white/80">{p.branding.name}{p.branding.tagline ? ` · ${p.branding.tagline}` : ''}</p></section>
 
-        {notices.length > 0 && <section aria-label="Announcements" className="space-y-2">{notices.map((a: any) => <div key={a.id} className="card flex gap-3 !border-accent/60"><span className="text-accent"><Icon name="bell" /></span><div><p className="font-semibold">{a.title}</p><p className="whitespace-pre-wrap text-sm text-muted">{a.body}</p></div></div>)}</section>}
 
         <section aria-label="Quick actions" className="grid grid-cols-2 gap-3 md:grid-cols-4">{tiles.map(([href, icon, title, sub]) => (
           <Link key={href as string} href={href as string} className="card group flex flex-col gap-2 !p-4 transition hover:-translate-y-0.5 hover:border-brand hover:shadow-md"><span className="grid h-10 w-10 place-items-center rounded-xl bg-accent/20 text-brand"><Icon name={icon as string} /></span><span className="font-semibold leading-tight">{title}</span><span className="text-xs text-muted">{sub}</span></Link>))}</section>

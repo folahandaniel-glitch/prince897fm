@@ -35,6 +35,9 @@ export default async function RegisterPage({ params }: { params: Promise<{ org: 
   return (
     <main id="main" className="grid min-h-screen place-items-center p-4" style={{ ['--brand' as string]: hexToRgbTriplet(cfg.branding.primary) }}>
       <div className="card w-full max-w-lg">
+        {cfg.branding.logoUrl
+          // eslint-disable-next-line @next/next/no-img-element
+          ? <div className="mb-4 flex justify-center rounded-xl bg-[#0b0b0b] px-4 py-3"><img src={cfg.branding.logoUrl} alt={org.name} width={400} height={110} decoding="async" className="h-auto w-44 max-w-full" /></div> : null}
         <h1 className="text-2xl font-bold">Join {org.name}</h1>
         <p className="mt-1 text-sm text-muted">Tell us where you expect to work. These are requests only; your actual {t('position').toLowerCase()}, {t('department').toLowerCase()} and access are set by an administrator.</p>
         <ActionForm action={register as any} submit="Submit registration" className="mt-5">

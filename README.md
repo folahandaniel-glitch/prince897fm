@@ -21,6 +21,9 @@ Universal, multi-tenant, configuration-driven enterprise platform by **Fodan Sof
 | Messaging | Every in-app notice is mirrored to email (opt-out per person) through an outbox; email via Resend, SMS via Termii (optional); password reset by email |
 | Leave | Public holidays (not counted as leave days), pro-rata for new joiners, capped carry-over |
 | Branding | Colours, names, terminology, and logo/emblem upload, all versioned (draft, publish, rollback) |
+| Branches & locations | BackEnd/Admin: add, edit, archive branches with address and Google coordinates (pasted from Google Maps, or "use my location"); a matching geofence is kept in sync for clock-in |
+| Announcements | A rotating banner on every page (auto-advance, pause, arrows, swipe, dots); post, edit, pin, expire and remove from Announcements |
+| Edit controls | Rename departments/positions, edit employee details, shifts, leave types, training courses and CRM accounts (all audited) |
 | Rosters | Weekly grid, repeating rotations (e.g. 3 on / 2 off), conflict checks |
 | Shift cover & exchange | Staff ask a colleague to cover a rostered shift, or to exchange shifts; colleague accepts, then the manager approves (rest-hour, leave and overlap checks run) and the roster updates |
 | Procurement | Purchase orders: raise, approve, confirm receipt (three different people), convert to a vendor bill |
@@ -40,7 +43,7 @@ With no `DATABASE_URL`, an embedded Postgres (PGlite) is stored in `.data/pg` an
 (`prince897` radio station, `gracechapel` church). Generated demo sign-in details are written to `.data/seed-credentials.txt` (git-ignored).
 
 ```bash
-npm test             # 259 tests
+npm test             # 269 tests
 npm run typecheck
 npm run build
 ```

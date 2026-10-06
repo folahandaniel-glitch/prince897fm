@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { page, mutate, field, optional } from '@/server/session';
 import { assignmentOn, getEmployee, listEmployees, listStructure, transferEmployee } from '@/server/hr';
+import { updateEmployee } from '@/server/edits';
 import { term } from '@/domain/config-schema';
 import { ActionForm, Field, Select } from '@/components/forms';
 
@@ -18,6 +19,12 @@ async function transfer(_p: unknown, f: FormData) {
     });
     return 'Assignment recorded. Previous history is preserved.';
   });
+}
+
+async function editEmployee(_p: unknown, f: FormData) {
+  'use server';
+  const id = field(f, 'employeeId');
+  return mutate([`/employees/${id}`, '/employees'], async (c) => { await updateEmployee(c, id, { fullName: field(f, 'fullName'), phone: field(f, 'phone'), employmentType: field(f, 'type'), status: field(f, 'status') }); return 'Details updated.'; });
 }
 
 export default async function EmployeePage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ on?: string }> }) {
@@ -64,6 +71,12 @@ export default async function EmployeePage({ params, searchParams }: { params: P
               {h.reason && <p className="text-muted">Reason: {h.reason}{h.approved_by ? ` (approved by ${h.approved_by})` : ''}</p>}
             </li>))}</ol>
         </section>
+
+        {p.allowed('employee:edit') && e.status !== 'exited' && <details className="card"><summary className="cursor-pointer text-sm font-medium underline">Edit details</summary>
+          <ActionForm action={editEmployee as any} submit="Save changes" className="mt-3"><input type="hidden" name="employeeId" value={id} />
+            <div className="grid gap-x-4 sm:grid-cols-2"><Field label="Full name" name="fullName" required defaultValue={e.full_name} /><Field label="Phone" name="phone" defaultValue={e.phone ?? ''} />
+              <Select label="Employment type" name="type" allowEmpty={false} defaultValue={e.employment_type} options={['permanent', 'contract', 'probation', 'intern', 'volunteer', 'freelance'].map((x) => ({ value: x, label: x }))} />
+              <Select label="Status" name="status" allowEmpty={false} defaultValue={e.status} options={[{ value: 'active', label: 'Active' }, { value: 'on_leave', label: 'On leave' }, { value: 'suspended', label: 'Suspended' }]} /></div></ActionForm></details>}
 
         {canTransfer && st && (
           <section className="card" aria-labelledby="tr">

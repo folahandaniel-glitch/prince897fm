@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { BrandMark } from '@/components/brand-mark';
 import { resetPassword } from '@/server/reset';
 import { boot } from '@/server/session';
 import { ResetForm } from './form';
@@ -17,7 +18,7 @@ export default async function Reset({ params }: { params: Promise<{ token: strin
     return err ? { error: err } : { ok: 'Password changed. You can now sign in.' };
   }
   return (
-    <main id="main" className="grid min-h-screen place-items-center bg-[#0b0b0b] p-4"><div className="card w-full max-w-md">
+    <main id="main" className="grid min-h-screen place-items-center bg-[#0b0b0b] p-4"><div className="card w-full max-w-md"><BrandMark />
       <h1 className="text-2xl font-bold">Choose a new password</h1>
       <p className="mt-1 text-sm text-muted">At least 12 characters. A short passphrase of unrelated words works well.</p>
       <ResetForm action={apply} />

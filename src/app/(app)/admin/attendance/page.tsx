@@ -1,5 +1,6 @@
 import { page, mutate, field } from '@/server/session';
 import { addLeaveType, addShift, addWorkplace, assignWorkplace, listLeaveTypes, listShifts, listWorkplaces } from '@/server/attendance';
+import { archiveLeaveType, archiveShift, updateLeaveType, updateShift } from '@/server/edits';
 import { need } from '@/server/ctx';
 import { ActionForm, Field, Select } from '@/components/forms';
 import { UseMyLocation } from '@/components/clock';
@@ -23,6 +24,17 @@ async function assign(_p: unknown, f: FormData) {
   'use server';
   return mutate(['/admin/attendance'], async (c) => { await assignWorkplace(c, { employeeId: field(f, 'employeeId'), workplaceId: field(f, 'workplaceId'), kind: field(f, 'kind'), validFrom: field(f, 'validFrom'), validTo: field(f, 'validTo') }); return 'Assigned.'; });
 }
+async function shiftEdit(_p: unknown, f: FormData) {
+  'use server';
+  return mutate(['/admin/attendance'], async (c) => { await updateShift(c, field(f, 'id'), { name: field(f, 'name'), start: field(f, 'start'), end: field(f, 'end'), graceMin: Number(field(f, 'grace') || 10), earlyMin: Number(field(f, 'early') || 60) }); return 'Shift updated.'; });
+}
+async function shiftArchive(_p: unknown, f: FormData) { 'use server'; return mutate(['/admin/attendance'], async (c) => { await archiveShift(c, field(f, 'id')); return 'Shift archived.'; }); }
+async function leaveEdit(_p: unknown, f: FormData) {
+  'use server';
+  return mutate(['/admin/attendance', '/leave'], async (c) => { await updateLeaveType(c, field(f, 'id'), { name: field(f, 'name'), annualDays: Number(field(f, 'days')) || 0, paid: field(f, 'paid') === 'on', carryOverMax: Number(field(f, 'carry')) || 0, prorate: field(f, 'prorate') === 'on' }); return 'Leave type updated.'; });
+}
+async function leaveArchive(_p: unknown, f: FormData) { 'use server'; return mutate(['/admin/attendance', '/leave'], async (c) => { await archiveLeaveType(c, field(f, 'id')); return 'Leave type archived.'; }); }
+
 async function leaveType(_p: unknown, f: FormData) {
   'use server';
   return mutate(['/admin/attendance'], async (c) => { await addLeaveType(c, field(f, 'name'), Number(field(f, 'days')) || 0, field(f, 'paid') === 'on', { carryOverMax: Number(field(f, 'carry')) || 0, prorate: field(f, 'prorate') === 'on' }); return 'Leave type added.'; });
@@ -40,7 +52,10 @@ export default async function AttendanceSetup() {
         <p className="text-sm text-muted">Everything here is configuration. Shift names, times and workplaces are yours to define.</p>
 
         <section className="card" aria-labelledby="sh"><h2 id="sh" className="font-semibold">Shifts</h2>
-          <ul className="mt-2 divide-y divide-line text-sm">{shifts.map((s) => <li key={s.id} className="flex justify-between py-2"><span><strong>{s.name}</strong> <span className="text-muted">({s.code})</span></span><span>{s.start}–{s.end}{s.end <= s.start ? ' (overnight)' : ''} · grace {s.graceMin} min</span></li>)}</ul>
+          <ul className="mt-2 divide-y divide-line text-sm">{shifts.map((s) => <li key={s.id} className="py-2"><div className="flex justify-between"><span><strong>{s.name}</strong> <span className="text-muted">({s.code})</span></span><span>{s.start}–{s.end}{s.end <= s.start ? ' (overnight)' : ''} · grace {s.graceMin} min</span></div>
+            <details className="mt-1"><summary className="cursor-pointer text-xs text-muted underline">Edit or archive</summary>
+              <ActionForm action={shiftEdit as any} submit="Save shift" className="mt-2"><input type="hidden" name="id" value={s.id} /><div className="grid gap-x-3 sm:grid-cols-5"><Field label="Name" name="name" required defaultValue={s.name} /><Field label="Start" name="start" type="time" required defaultValue={s.start} /><Field label="End" name="end" type="time" required defaultValue={s.end} /><Field label="Grace (min)" name="grace" type="number" defaultValue={String(s.graceMin)} /><Field label="Early window (min)" name="early" type="number" defaultValue={String(s.earlyMin)} /></div></ActionForm>
+              <ActionForm action={shiftArchive as any} submit="Archive shift" tone="danger" confirm="Archive this shift? It cannot be rostered afterwards." className="mt-2"><input type="hidden" name="id" value={s.id} /></ActionForm></details></li>)}</ul>
           <ActionForm action={shift as any} submit="Add shift" className="mt-4 border-t border-line pt-4"><div className="grid gap-x-4 sm:grid-cols-5">
             <Field label="Name" name="name" required /><Field label="Code" name="code" required /><Field label="Start" name="start" type="time" required /><Field label="End" name="end" type="time" required /><Field label="Grace (min)" name="grace" type="number" defaultValue="10" /></div>
             <p className="text-xs text-muted">If the end time is earlier than the start, the shift crosses midnight (for example 22:00 to 06:00).</p></ActionForm></section>
@@ -67,7 +82,11 @@ export default async function AttendanceSetup() {
             <Field label="From" name="validFrom" type="date" /><Field label="To (optional)" name="validTo" type="date" /></div></ActionForm></section>
 
         <section className="card" aria-labelledby="lt"><h2 id="lt" className="font-semibold">Leave types</h2>
-          <ul className="mt-2 divide-y divide-line text-sm">{leaveTypes.map((t: any) => <li key={t.id} className="flex justify-between py-2"><span>{t.name}</span><span className="text-muted">{Number(t.annual_days) > 0 ? `${Number(t.annual_days)} days/year` : 'not capped'} · {t.paid ? 'paid' : 'unpaid'}{Number(t.carry_over_max) > 0 ? ` · carry up to ${Number(t.carry_over_max)}` : ''}{t.prorate ? ' · pro-rata' : ''}</span></li>)}</ul>
+          <ul className="mt-2 divide-y divide-line text-sm">{leaveTypes.map((t: any) => <li key={t.id} className="py-2"><div className="flex justify-between"><span>{t.name}</span><span className="text-muted">{Number(t.annual_days) > 0 ? `${Number(t.annual_days)} days/year` : 'not capped'} · {t.paid ? 'paid' : 'unpaid'}{Number(t.carry_over_max) > 0 ? ` · carry up to ${Number(t.carry_over_max)}` : ''}{t.prorate ? ' · pro-rata' : ''}</span></div>
+            <details className="mt-1"><summary className="cursor-pointer text-xs text-muted underline">Edit or archive</summary>
+              <ActionForm action={leaveEdit as any} submit="Save leave type" className="mt-2"><input type="hidden" name="id" value={t.id} /><div className="grid gap-x-3 sm:grid-cols-3"><Field label="Name" name="name" required defaultValue={t.name} /><Field label="Days per year (0 = not capped)" name="days" type="number" defaultValue={String(Number(t.annual_days))} /><Field label="Carry-over limit (days)" name="carry" type="number" defaultValue={String(Number(t.carry_over_max))} /></div>
+                <div className="flex flex-wrap gap-4 text-sm"><label className="flex items-center gap-2"><input type="checkbox" name="paid" defaultChecked={!!t.paid} className="h-5 w-5" /> Paid</label><label className="flex items-center gap-2"><input type="checkbox" name="prorate" defaultChecked={!!t.prorate} className="h-5 w-5" /> Pro-rata for new joiners</label></div></ActionForm>
+              <ActionForm action={leaveArchive as any} submit="Archive leave type" tone="danger" confirm="Archive this leave type?" className="mt-2"><input type="hidden" name="id" value={t.id} /></ActionForm></details></li>)}</ul>
           <ActionForm action={leaveType as any} submit="Add leave type" className="mt-4 border-t border-line pt-4"><div className="grid gap-x-4 sm:grid-cols-3"><Field label="Name" name="name" required /><Field label="Days per year (0 = not capped)" name="days" type="number" defaultValue="0" />
             <Field label="Carry-over limit (days)" name="carry" type="number" defaultValue="0" /><label className="mt-7 flex items-center gap-2 text-sm"><input type="checkbox" name="paid" defaultChecked className="h-5 w-5" /> Paid</label><label className="mt-7 flex items-center gap-2 text-sm"><input type="checkbox" name="prorate" defaultChecked className="h-5 w-5" /> Pro-rata for new joiners</label></div></ActionForm></section>
       </div>

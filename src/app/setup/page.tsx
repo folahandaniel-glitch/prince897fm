@@ -1,4 +1,5 @@
 import crypto from 'node:crypto';
+import { BrandMark } from '@/components/brand-mark';
 import { notFound } from 'next/navigation';
 import { headers } from 'next/headers';
 import { privileged } from '@/server/db';
@@ -112,7 +113,7 @@ export default async function Setup() {
     try { report = await checkDatabase(process.env.DATABASE_URL || process.env.POSTGRES_URL || process.env.POSTGRES_PRISMA_URL); } catch { report = null; }
   }
   return (
-    <main id="main" className="grid min-h-screen place-items-center bg-[#0b0b0b] p-4"><div className="card w-full max-w-lg">
+    <main id="main" className="grid min-h-screen place-items-center bg-[#0b0b0b] p-4"><div className="card w-full max-w-lg"><BrandMark />
       <h1 className="text-2xl font-bold">First-time setup</h1>
       {failure ? (
         <div role="alert" className="mt-4 rounded-lg border border-red-300 bg-red-50 p-4 text-sm text-red-900 dark:border-red-500/40 dark:bg-red-500/10 dark:text-red-200">

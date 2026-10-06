@@ -12,6 +12,7 @@ import { SearchButton } from '@/components/search-button';
 import { BottomNav, SideNav, type NavLinkItem } from '@/components/nav';
 import { MenuDrawer } from '@/components/drawer';
 import { Icon } from '@/components/icons';
+import { AnnouncementCarousel } from '@/components/announcement-carousel';
 
 async function logout() {
   'use server';
@@ -84,6 +85,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
             </details>
           </div>
         </header>
+        {!sh.disabled.has('announcements') && <AnnouncementCarousel items={sh.announcements} canPost={can(sh.subject, 'announcement:post').allow} brandLogo={b.markUrl || undefined} />}
         <main id="main" className="mx-auto w-full max-w-6xl flex-1 p-3 pb-24 sm:p-6 lg:pb-8">{children}</main>
         <footer className="no-print border-t border-line px-4 pb-24 pt-4 text-center lg:pb-4">
           <p className="text-xs text-muted">{b.footer}</p>

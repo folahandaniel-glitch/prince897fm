@@ -1,5 +1,6 @@
 import { page, mutate, field, optional } from '@/server/session';
 import { assignTraining, complianceGaps, createCourse, listCourses, listRecords, recordResult } from '@/server/training';
+import { archiveCourse, updateCourse } from '@/server/edits';
 import { need } from '@/server/ctx';
 import { ActionForm, Field, Select } from '@/components/forms';
 
@@ -10,6 +11,11 @@ async function course(_p: unknown, f: FormData) {
   'use server';
   return mutate(['/training/manage'], async (c) => { await createCourse(c, { name: field(f, 'name'), description: field(f, 'description'), mandatory: field(f, 'mandatory') === 'on', validMonths: field(f, 'months') ? Number(field(f, 'months')) : null }); return 'Course added.'; });
 }
+async function courseEdit(_p: unknown, f: FormData) {
+  'use server';
+  return mutate(['/training/manage'], async (c) => { await updateCourse(c, field(f, 'id'), { name: field(f, 'name'), description: field(f, 'description'), mandatory: field(f, 'mandatory') === 'on', validMonths: field(f, 'months') ? Number(field(f, 'months')) : null }); return 'Course updated.'; });
+}
+async function courseArchive(_p: unknown, f: FormData) { 'use server'; return mutate(['/training/manage'], async (c) => { await archiveCourse(c, field(f, 'id')); return 'Course archived.'; }); }
 async function assign(_p: unknown, f: FormData) {
   'use server';
   return mutate(['/training/manage'], async (c) => { const n = await assignTraining(c, { courseId: field(f, 'course'), employeeIds: f.getAll('people').map(String), dueOn: optional(f, 'due') ?? undefined }); return `Assigned to ${n} ${n === 1 ? 'person' : 'people'} (anyone with the course already open was skipped).`; });
@@ -36,6 +42,12 @@ export default async function Manage() {
           <section className="card"><h2 className="font-semibold">Assign a course</h2><ActionForm action={assign as any} submit="Assign" className="mt-3"><Select label="Course" name="course" required allowEmpty={false} options={courses.map((c: any) => ({ value: c.id, label: c.name }))} /><Field label="Due date" name="due" type="date" />
             <div className="mb-1"><label className="label" htmlFor="people">People (hold Ctrl/Cmd to choose several)</label><select id="people" name="people" multiple size={6} className="input" required>{people.map((e: any) => <option key={e.id} value={e.id}>{e.full_name} ({e.employee_no})</option>)}</select></div></ActionForm></section>
         </div>
+        <section className="card"><h2 className="font-semibold">Courses <span className="text-muted">({courses.length})</span></h2>
+          {courses.length === 0 ? <p className="mt-2 text-sm text-muted">No courses yet. Add one above.</p> : <ul className="mt-2 divide-y divide-line text-sm">{courses.map((k: any) => (
+            <li key={k.id} className="py-2"><div className="flex flex-wrap items-center justify-between gap-2"><span><strong>{k.name}</strong>{k.mandatory && <span className="badge ml-2">Mandatory</span>}<span className="ml-2 text-muted">{k.valid_months ? `valid ${k.valid_months} months` : 'never expires'}</span></span></div>
+              <details className="mt-1"><summary className="cursor-pointer text-xs text-muted underline">Edit or archive</summary>
+                <ActionForm action={courseEdit as any} submit="Save course" className="mt-2"><input type="hidden" name="id" value={k.id} /><div className="grid gap-x-3 sm:grid-cols-3"><Field label="Name" name="name" required defaultValue={k.name} /><Field label="Description" name="description" defaultValue={k.description ?? ''} /><Field label="Valid for (months)" name="months" defaultValue={k.valid_months ? String(k.valid_months) : ''} /></div><label className="mb-2 flex items-center gap-2 text-sm"><input type="checkbox" name="mandatory" defaultChecked={!!k.mandatory} className="h-5 w-5" /> Mandatory for everyone</label></ActionForm>
+                <ActionForm action={courseArchive as any} submit="Archive course" tone="danger" confirm="Archive this course?" className="mt-2"><input type="hidden" name="id" value={k.id} /></ActionForm></details></li>))}</ul>}</section>
         <section className="card"><h2 className="font-semibold">Awaiting a result <span className="text-muted">({open.length})</span></h2>
           {open.length === 0 ? <p className="mt-2 text-sm text-muted">Nothing is waiting for a result.</p> : <ul className="mt-2 divide-y divide-line">{open.map((r: any) => (
             <li key={r.id} className="py-3"><p className="text-sm"><strong>{r.full_name}</strong> · {r.course}{r.due_on && <span className={r.due_on < today ? 'ml-2 font-semibold text-red-700 dark:text-red-400' : 'ml-2 text-muted'}>due {r.due_on}</span>}</p>

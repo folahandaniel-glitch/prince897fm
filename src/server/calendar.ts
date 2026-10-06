@@ -60,12 +60,24 @@ export async function postAnnouncement(c: Ctx, i: { title: string; body: string;
 }
 
 export async function activeAnnouncements(c: Ctx) {
-  const rows = await c.q.query<any>(`select a.id, a.title, a.body, a.roles, a.pinned, a.created_at, u.email as author from announcements a join users u on u.id = a.created_by where a.starts_on <= current_date and (a.expires_on is null or a.expires_on >= current_date) order by a.pinned desc, a.created_at desc limit 20`);
-  return rows.filter((r) => visibleTo(c, r.roles)).slice(0, 5);
+  const rows = await c.q.query<any>(`select a.id, a.title, a.body, a.roles, a.pinned, a.created_at, a.starts_on::text as starts_on, a.expires_on::text as expires_on, u.email as author from announcements a join users u on u.id = a.created_by where a.starts_on <= current_date and (a.expires_on is null or a.expires_on >= current_date) order by a.pinned desc, a.created_at desc limit 20`);
+  return rows.filter((r) => visibleTo(c, r.roles)).slice(0, 8);
 }
 
 export async function removeAnnouncement(c: Ctx, id: string) {
   need(c, 'announcement:post');
   await c.q.query('delete from announcements where id = $1', [id]);
   await audit(c.q, { orgId: c.orgId, actorUserId: c.userId, action: 'announcement.removed', entity: 'announcement', entityId: id, ip: c.ip, userAgent: c.userAgent });
+}
+
+/** Edit an announcement in place (title, message, audience, pin, start and expiry dates). */
+export async function updateAnnouncement(c: Ctx, id: string, i: { title: string; body: string; roles: string[]; pinned?: boolean; startsOn?: string; expiresOn?: string }) {
+  need(c, 'announcement:post');
+  if (i.title.trim().length < 2 || i.body.trim().length < 1) throw new UserError('Add a title and a message.');
+  const okDate = (s?: string) => !s || /^\d{4}-\d{2}-\d{2}$/.test(s);
+  if (!okDate(i.expiresOn) || !okDate(i.startsOn)) throw new UserError('Enter valid dates.');
+  if (i.startsOn && i.expiresOn && i.expiresOn < i.startsOn) throw new UserError('The expiry date cannot be before the start date.');
+  const r = await c.q.query('update announcements set title=$2, body=$3, roles=$4::jsonb, pinned=$5, starts_on=coalesce($6::date, starts_on), expires_on=$7 where id=$1 returning id', [id, i.title.trim(), i.body.trim(), JSON.stringify(i.roles.length ? i.roles : ['*']), !!i.pinned, i.startsOn || null, i.expiresOn || null]);
+  if (!r[0]) throw new UserError('Announcement not found.');
+  await audit(c.q, { orgId: c.orgId, actorUserId: c.userId, action: 'announcement.updated', entity: 'announcement', entityId: id, after: { title: i.title.trim() }, ip: c.ip, userAgent: c.userAgent });
 }

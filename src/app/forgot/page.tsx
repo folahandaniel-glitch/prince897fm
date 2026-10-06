@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { BrandMark } from '@/components/brand-mark';
 import { headers } from 'next/headers';
 import { after } from 'next/server';
 import { emailConfigured, flushOutbox } from '@/server/messaging';
@@ -20,7 +21,7 @@ async function send(_p: { ok?: string; error?: string } | null, f: FormData) {
 
 export default function Forgot() {
   return (
-    <main id="main" className="grid min-h-screen place-items-center bg-[#0b0b0b] p-4"><div className="card w-full max-w-md">
+    <main id="main" className="grid min-h-screen place-items-center bg-[#0b0b0b] p-4"><div className="card w-full max-w-md"><BrandMark />
       <h1 className="text-2xl font-bold">Forgot your password?</h1>
       <p className="mt-1 text-sm text-muted">Enter your organisation code and email. We will send you a link to choose a new password.</p>
       <ForgotForm action={send} />

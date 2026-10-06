@@ -142,6 +142,8 @@ export async function seedOrganization(t: Template, creds: string[]) {
       : { name: t.branches[0].name + ' (set exact coordinates)', address: 'Placeholder location: an administrator must set the real latitude/longitude', lat: 6.5244, lng: 3.3792, radius: 200 };
     await q.query(`insert into workplaces (org_id, name, kind, address, latitude, longitude, radius_m, branch_id) values ($1,$2,'headquarters',$3,$4,$5,$6,$7)`,
       [orgId, hq.name, hq.address, hq.lat, hq.lng, hq.radius, ids[`b:${t.branches[0].name}`]]);
+    // The branch carries the same coordinates, so they show (and can be edited) in the BackEnd.
+    await q.query('update branches set latitude = $2, longitude = $3, radius_m = $4, address = $5, is_headquarters = true where id = $1', [ids[`b:${t.branches[0].name}`], hq.lat, hq.lng, hq.radius, hq.address]);
     for (const [name, days, paid] of [['Annual leave', 20, true], ['Sick leave', 12, true], ['Compassionate leave', 5, true], ['Maternity leave', 84, true], ['Study leave', 0, false]] as const)
       await q.query('insert into leave_types (org_id, name, annual_days, paid) values ($1,$2,$3,$4)', [orgId, name, days, paid]);
     await audit(q, { orgId, action: 'organization.provisioned', entity: 'organization', entityId: orgId, after: { template: t.template } });

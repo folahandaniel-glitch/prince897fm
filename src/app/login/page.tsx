@@ -2,8 +2,8 @@ import { cookies, headers } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { login, resolveSession, SESSION_COOKIE } from '@/server/auth';
 import { boot } from '@/server/session';
-import { privileged } from '@/server/db';
-import { DEFAULT_BRANDING, hexToRgbTriplet, type Branding } from '@/domain/config-schema';
+import { publicBranding } from '@/server/brand-public';
+import { hexToRgbTriplet } from '@/domain/config-schema';
 import { Icon } from '@/components/icons';
 import { LoginForm } from './form';
 import { AuthScene } from './scene';
@@ -30,30 +30,6 @@ async function signIn(_prev: { error?: string } | null, data: FormData): Promise
   redirect(dest);
 }
 
-let brandCache: { at: number; v: { b: Branding; slug: string } } | null = null; // the page renders per request (CSP nonce), so keep the tenant lookup off the hot path
-async function loginBranding(): Promise<{ b: Branding; slug: string }> {
-  if (brandCache && Date.now() - brandCache.at < 60_000) return brandCache.v;
-  const v = await loadLoginBranding();
-  if (v.slug) brandCache = { at: Date.now(), v };
-  return v;
-}
-
-/** Branding of the tenant that owns this deployment's sign-in page (DEFAULT_ORG_SLUG). Falls back to neutral defaults. */
-async function loadLoginBranding(): Promise<{ b: Branding; slug: string }> {
-  const slug = process.env.DEFAULT_ORG_SLUG ?? 'prince897';
-  // The build must never wait on (or write to) a database: it renders with neutral defaults, and the page refreshes with the tenant's branding at runtime.
-  if (process.env.NEXT_PHASE === 'phase-production-build') return { b: DEFAULT_BRANDING, slug };
-  try {
-    if (!(process.env.DATABASE_URL || process.env.POSTGRES_URL) && process.env.NODE_ENV === 'production' && process.env.SEED_DEMO !== 'force') return { b: DEFAULT_BRANDING, slug: '' };
-    await boot();
-    const r = await (await privileged()).query<{ payload: Branding }>(
-      `select c.payload from config_versions c join organizations o on o.id = c.org_id where o.slug = $1 and c.kind = 'branding' and c.status = 'published'`, [slug]);
-    return r[0] ? { b: { ...DEFAULT_BRANDING, ...r[0].payload }, slug } : { b: DEFAULT_BRANDING, slug: '' };
-  } catch {
-    return { b: DEFAULT_BRANDING, slug: '' };
-  }
-}
-
 const FEATURES: [string, string, string][] = [
   ['clock', 'Attendance & shifts', 'Geofenced clock-in, rosters and leave'],
   ['wallet', 'Payslips', 'View and print your pay, with every deduction explained'],
@@ -62,7 +38,7 @@ const FEATURES: [string, string, string][] = [
 ];
 
 export default async function LoginPage({ searchParams }: { searchParams: Promise<{ next?: string }> }) {
-  const { b, slug } = await loginBranding();
+  const { b, slug } = await publicBranding();
   const next = safeNext((await searchParams).next);
   const backend = next.startsWith('/backend');
   // Already signed in (for example following the footer BackEnd link): go straight there.

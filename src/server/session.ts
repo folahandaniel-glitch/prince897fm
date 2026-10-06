@@ -10,6 +10,7 @@ import { withTenant } from './db';
 import { ensureDatabase } from './db';
 import { resolveConfig } from './config';
 import { navExtras } from './builders';
+import { activeAnnouncements } from './calendar';
 import { seedDemoIfEmpty } from './seed';
 import { ForbiddenError, can } from '../domain/policy';
 import type { Branding, Navigation, Terminology } from '../domain/config-schema';
@@ -56,7 +57,8 @@ const loadShell = cache(async () => {
       q.query<{ key: string }>('select key from org_features where not enabled'),
       navExtras(q, s.org_id),
     ]);
-    return { subject, cfg, unread: unread[0].n, disabled: new Set(off.map((r) => r.key)), extras };
+    const ann = (await activeAnnouncements({ q, orgId: s.org_id, userId: s.user_id, subject } as Ctx)).map((a: any) => ({ id: a.id as string, title: a.title as string, body: a.body as string, pinned: !!a.pinned, when: String(a.created_at) }));
+    return { subject, cfg, unread: unread[0].n, disabled: new Set(off.map((r) => r.key)), extras, announcements: ann };
   }, s.user_id);
   return { s, ...shell };
 });

@@ -1,4 +1,5 @@
 import { cookies, headers } from 'next/headers';
+import { BrandMark } from '@/components/brand-mark';
 import { redirect } from 'next/navigation';
 import { completeMfa, SESSION_COOKIE } from '@/server/auth';
 import { boot } from '@/server/session';
@@ -23,7 +24,7 @@ async function verify(_p: { error?: string } | null, data: FormData): Promise<{ 
 export default function MfaPage() {
   return (
     <main id="main" className="grid min-h-[100dvh] place-items-center bg-[#0b0b0b] p-4">
-      <div className="card w-full max-w-sm">
+      <div className="card w-full max-w-sm"><BrandMark />
         <h1 className="text-2xl font-bold">Two-step verification</h1>
         <p className="mt-1 text-sm text-muted">Open your authenticator app and enter the 6-digit code for this account.</p>
         <MfaForm action={verify} />

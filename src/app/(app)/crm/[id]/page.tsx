@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { page, mutate, field } from '@/server/session';
 import { addContact, createOpportunity, getAccount, logActivity, moveOpportunity, STAGE_LABEL, STAGES } from '@/server/crm';
+import { updateCrmAccount } from '@/server/edits';
 import { Money } from '@/components/money';
 import { ActionForm, Field, Select } from '@/components/forms';
 import { PageHead } from '@/components/ui';
@@ -12,6 +13,12 @@ async function contact(_p: unknown, f: FormData) { 'use server'; const id = fiel
 async function activity(_p: unknown, f: FormData) { 'use server'; const id = field(f, 'id'); return mutate(paths(id), async (c) => { await logActivity(c, id, { kind: field(f, 'kind'), summary: field(f, 'summary'), followUpOn: field(f, 'followUp') || undefined, opportunityId: field(f, 'opp') || undefined }); return 'Logged.'; }); }
 async function opp(_p: unknown, f: FormData) { 'use server'; const id = field(f, 'id'); return mutate(paths(id), async (c) => { await createOpportunity(c, id, { title: field(f, 'title'), value: field(f, 'value'), expectedClose: field(f, 'close') || undefined, campaignStart: field(f, 'cs') || undefined, campaignEnd: field(f, 'ce') || undefined }); return 'Opportunity added.'; }); }
 async function move(_p: unknown, f: FormData) { 'use server'; const id = field(f, 'account'); return mutate(paths(id), async (c) => moveOpportunity(c, field(f, 'id'), field(f, 'stage'), field(f, 'reason'))); }
+
+async function editAccount(_p: unknown, f: FormData) {
+  'use server';
+  const id = field(f, 'id');
+  return mutate(paths(id), async (c) => { await updateCrmAccount(c, id, { name: field(f, 'name'), status: field(f, 'status'), industry: field(f, 'industry'), phone: field(f, 'phone'), email: field(f, 'email'), address: field(f, 'address'), notes: field(f, 'notes') }); return 'Account updated.'; });
+}
 
 export default async function Account({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -27,6 +34,13 @@ export default async function Account({ params }: { params: Promise<{ id: string
       <div className="space-y-5">
         <nav className="text-sm text-muted" aria-label="Breadcrumb"><Link className="underline" href="/crm">CRM</Link> / {a.name}</nav>
         <PageHead title={a.name} sub={[a.industry, a.phone, a.email].filter(Boolean).join(' · ')}><span className="badge text-sm">{a.status}</span>{a.fin_party_id && p.allowed('finance:create') && <Link className="btn-ghost" href="/finance/new">Record income</Link>}<Link className="btn-ghost" href="/tickets">Support</Link></PageHead>
+        {manage && <details className="card"><summary className="cursor-pointer text-sm font-medium underline">Edit account details</summary>
+          <ActionForm action={editAccount as any} submit="Save changes" className="mt-3"><input type="hidden" name="id" value={id} />
+            <div className="grid gap-x-4 sm:grid-cols-2"><Field label="Name" name="name" required defaultValue={a.name} />
+              <Select label="Status" name="status" allowEmpty={false} defaultValue={a.status} options={['lead', 'prospect', 'client', 'inactive'].map((s) => ({ value: s, label: s }))} />
+              <Field label="Industry" name="industry" defaultValue={a.industry ?? ''} /><Field label="Phone" name="phone" defaultValue={a.phone ?? ''} />
+              <Field label="Email" name="email" type="email" defaultValue={a.email ?? ''} /><Field label="Address" name="address" defaultValue={a.address ?? ''} /></div>
+            <div className="mb-1"><label className="label" htmlFor="notes">Notes</label><textarea id="notes" name="notes" rows={3} defaultValue={a.notes ?? ''} className="input py-2" /></div></ActionForm></details>}
         <div className="grid gap-5 lg:grid-cols-3">
           <div className="space-y-5 lg:col-span-2">
             <section className="card" aria-labelledby="op"><h2 id="op" className="font-semibold">Opportunities</h2>

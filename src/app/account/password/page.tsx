@@ -1,4 +1,5 @@
 import { cookies } from 'next/headers';
+import { BrandMark } from '@/components/brand-mark';
 import { redirect } from 'next/navigation';
 import { changePassword, SESSION_COOKIE } from '@/server/auth';
 import { shell } from '@/server/session';
@@ -25,7 +26,7 @@ export default async function PasswordPage() {
   const sh = await shell({ allowPasswordChange: true });
   return (
     <main id="main" className="grid min-h-[100dvh] place-items-center bg-[#0b0b0b] p-4">
-      <div className="card w-full max-w-md">
+      <div className="card w-full max-w-md"><BrandMark />
         <h1 className="text-2xl font-bold">{sh.s.must_change_password ? 'Choose your own password' : 'Change password'}</h1>
         <p className="mt-1 text-sm text-muted">{sh.s.must_change_password ? 'You signed in with a one-time password. Set a personal one to continue.' : 'Other devices will be signed out.'}</p>
         <ActionForm action={change as any} submit="Save password" className="mt-4">

@@ -52,6 +52,7 @@ const loadShell = cache(async () => {
   if (!s) return null;
   const shell = await withTenant(s.org_id, async (q) => {
     if (await autoCloseThrottled(q, s.org_id, s.user_id)) return null; // forgot to clock out: the shift was closed and this person was signed out
+    const photo = (await q.query<{ sha256: string }>('select sha256 from user_photos where user_id = $1', [s.user_id]))[0]?.sha256 ?? null;
     const [subject, cfg, unread, off, extras] = await Promise.all([
       loadSubject(q, s.org_id, s.user_id),
       resolveConfig(q, s.org_id),
@@ -60,7 +61,7 @@ const loadShell = cache(async () => {
       navExtras(q, s.org_id),
     ]);
     const ann = (await activeAnnouncements({ q, orgId: s.org_id, userId: s.user_id, subject } as Ctx)).map((a: any) => ({ id: a.id as string, title: a.title as string, body: a.body as string, pinned: !!a.pinned, when: String(a.created_at) }));
-    return { subject, cfg, unread: unread[0].n, disabled: new Set(off.map((r) => r.key)), extras, announcements: ann };
+    return { subject, cfg, unread: unread[0].n, disabled: new Set(off.map((r) => r.key)), extras, announcements: ann, photo };
   }, s.user_id);
   if (!shell) return null;
   return { s, ...shell };

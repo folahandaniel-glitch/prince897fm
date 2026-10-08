@@ -32,6 +32,15 @@ Universal, multi-tenant, configuration-driven enterprise platform by **Fodan Sof
 | Branches & locations | BackEnd/Admin: add, edit, archive branches with address and Google coordinates (pasted from Google Maps, or "use my location"); a matching geofence is kept in sync for clock-in |
 | Announcements | A rotating banner on every page (auto-advance, pause, arrows, swipe, dots); post, edit, pin, expire and remove from Announcements |
 | Edit controls | Rename departments/positions, edit employee details, shifts, leave types, training courses and CRM accounts (all audited) |
+| Profile pictures | Staff edit their profile and upload a JPEG, PNG or WebP (up to 4 MB). It is cropped square, rotated upright, stripped of camera/location data and shrunk to a WebP of at most 10 KB at the best quality that fits. Shown in the header, dashboard and birthdays |
+| Deliverables | HR defines what each department and level must produce each month; staff submit (with a link); supervisors approve or return; approved deliverables feed the KPI. Pages: My Deliverables, Review Deliverables, Deliverable Setup |
+| Performance | My Performance (KPI, deliverables, warning signs, six-month trend) and Performance Flags for managers (3+ late arrivals in 30 days, missed clock-outs, 3+ overdue tasks, KPI under 50%, weak assessment) |
+| Task board & projects | Kanban board (To do, In progress, Blocked, Done) for me or my team, and a Projects view of each project's tasks |
+| Company | Notice Board, Memos (numbered, must be acknowledged, sender sees who has read), Knowledge Base (categories, search, drafts, pinning), Events & Holidays |
+| Salary advances | Up to one month's fixed pay, repaid over 1-6 months. Approved by one person, paid by another; the cash sits in "Staff deductions payable" and is recovered automatically by payroll |
+| Contracts | Templates with merge fields, contracts per client (draft, sent, signed, expired), printable, renewal reminders 30 and 7 days before the end |
+| Proposals & estimates | Line items, VAT, valid-until, printable; once accepted they turn into a receivable invoice in one step. Payments page lists money in and out against invoices |
+| Management reports | Attendance, leave, payroll and task reports for a month, limited to the people the viewer may see, with CSV download. Late Excuses page for explaining lateness |
 | Rosters | Weekly grid, repeating rotations (e.g. 3 on / 2 off), conflict checks |
 | Shift cover & exchange | Staff ask a colleague to cover a rostered shift, or to exchange shifts; colleague accepts, then the manager approves (rest-hour, leave and overlap checks run) and the roster updates |
 | Procurement | Purchase orders: raise, approve, confirm receipt (three different people), convert to a vendor bill |
@@ -51,7 +60,7 @@ With no `DATABASE_URL`, an embedded Postgres (PGlite) is stored in `.data/pg` an
 (`prince897` radio station, `gracechapel` church). Generated demo sign-in details are written to `.data/seed-credentials.txt` (git-ignored).
 
 ```bash
-npm test             # 321 tests
+npm test             # 338 tests
 npm run typecheck
 npm run build
 ```

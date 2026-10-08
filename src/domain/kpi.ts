@@ -19,7 +19,7 @@ export function bandOfRank(rank: number | null | undefined): LevelBand {
   return 'intern';
 }
 
-export type MetricSource = 'punctuality' | 'attendance' | 'task_completion' | 'task_timeliness' | 'report_submission' | 'knowledge' | 'sales_target' | 'new_clients' | 'followups' | 'ticket_sla' | 'manual';
+export type MetricSource = 'punctuality' | 'attendance' | 'task_completion' | 'task_timeliness' | 'report_submission' | 'knowledge' | 'sales_target' | 'new_clients' | 'followups' | 'ticket_sla' | 'deliverables' | 'manual';
 
 /** 0 to 100. With a target the score is value against target (capped at 100); without one the value is already a percentage. */
 export function scoreMetric(value: number | null, target?: number | null): number | null {
@@ -74,6 +74,7 @@ export const KPI_LIBRARY: MetricDef[] = [
   { key: 'new_clients', name: 'New clients won', description: 'New paying clients against the monthly target.', source: 'new_clients', unit: 'clients' },
   { key: 'followups', name: 'Client follow-ups on time', description: 'Client follow-ups completed by their due date.', source: 'followups' },
   { key: 'ticket_sla', name: 'Fault tickets within SLA', description: 'Support and engineering tickets resolved within the service time.', source: 'ticket_sla' },
+  { key: 'deliverables', name: 'Deliverables approved', description: 'Approved deliverables against what is expected of the role each month.', source: 'deliverables' },
   { key: 'content_quality', name: 'Content & programme quality', description: 'Rated by the supervisor: voice, presentation, content, compliance with the programme format.', source: 'manual' },
   { key: 'listener_engagement', name: 'Listener engagement', description: 'Rated: call-ins, social interaction, audience growth for the programme.', source: 'manual' },
   { key: 'accuracy', name: 'Accuracy & ethics', description: 'Rated: factual accuracy, balance, corrections, broadcasting-code compliance.', source: 'manual' },

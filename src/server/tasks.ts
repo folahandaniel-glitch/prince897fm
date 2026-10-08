@@ -48,7 +48,7 @@ export async function listTasks(c: Ctx, scope: 'mine' | 'created' | 'team', stat
   if (status === 'open') where.push(`t.status in ('todo','in_progress','blocked')`);
   else if (status && STATUSES.includes(status)) { params.push(status); where.push(`t.status = $${params.length}`); }
   const rows = await c.q.query<any>(
-    `select t.id, t.title, t.status, t.priority, t.due_date::text as due, t.parent_id, p.name as project, e.full_name as assignee, a.department_id, a.branch_id,
+    `select t.id, t.title, t.status, t.priority, t.due_date::text as due, t.parent_id, t.project_id, p.name as project, e.full_name as assignee, a.department_id, a.branch_id,
             (t.due_date < current_date and t.status in ('todo','in_progress','blocked')) as overdue
        from tasks t left join projects p on p.id = t.project_id left join employees e on e.id = t.assignee_employee_id
        left join assignments a on a.employee_id = e.id and a.superseded_at is null and a.kind = 'substantive' and a.valid_from <= current_date and (a.valid_to is null or a.valid_to > current_date)

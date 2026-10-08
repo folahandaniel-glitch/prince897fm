@@ -27,3 +27,8 @@
 - Workflow builder is data-driven but has no visual designer. Search covers staff, tasks, departments, documents, clients, tickets and finance, each through that module's own access rules.
 - Wallboard TV/device testing not done.
 - Tenant custom domains are not built (use Vercel's domain settings for the whole deployment). Logos and emblems can be uploaded (PNG/JPEG/WebP up to 1 MB); app-install icons still come from the generated set.
+- Profile pictures: uploads are limited to 4 MB (the hosting platform caps request size); there is no in-browser cropper, the server centres on the subject automatically.
+- Salary advances: one open advance per person; the repayment schedule is fixed at payment time (equal parts starting next month). An exit mid-repayment must be settled by HR in the final pay.
+- Contracts: signatures are recorded as a name and date entered by staff; there is no electronic-signature service. Have a lawyer approve template wording.
+- Proposals/estimates: the form takes up to 5 lines; there is no PDF download beyond the browser's Print/Save as PDF.
+- Performance flags are fixed rules (listed on the page), not a configurable engine.

@@ -103,9 +103,10 @@ async function migrate(d: Driver) {
       }
     }
     // One-off: bring existing organisations' Administrator role up to the full set of tenant permissions (added to, never reduced).
-    const MARK = 'code:sync-admin-role-1';
+    // Roles are data, so existing organisations are brought up to date here. Permissions are only ever added, never removed.
+    const MARK = 'code:sync-roles-2';
     if (!done.has(MARK)) {
-      await q.query(`update roles set permissions = (select array_agg(distinct p) from unnest(permissions || $1::text[]) p) where is_system and key = 'tenant_admin'`, [SYSTEM_ROLES.find((r) => r.key === 'tenant_admin')!.permissions]);
+      for (const r of SYSTEM_ROLES) if (!r.hidden) await q.query(`update roles set permissions = (select array_agg(distinct p) from unnest(permissions || $2::text[]) p) where is_system and key = $1`, [r.key, r.permissions]);
       await q.query('insert into schema_migrations(name) values ($1)', [MARK]);
     }
     // The BackEnd shows applied migrations; the restricted application role may read (only) that list.

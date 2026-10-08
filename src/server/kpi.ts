@@ -4,6 +4,7 @@ import { can } from '../domain/policy';
 import { audit } from './audit';
 import { need, UserError, type Ctx } from './ctx';
 import type { Q } from './db';
+import { deliverableScore } from './deliverables';
 
 const CUR = `a.superseded_at is null and a.kind = 'substantive' and a.valid_from <= current_date and (a.valid_to is null or a.valid_to > current_date)`;
 const today = () => new Date().toISOString().slice(0, 10);
@@ -115,6 +116,7 @@ export async function measure(q: Q, source: MetricSource, e: Emp, period: string
     case 'new_clients': { if (!e.user_id) return null; const r = await one(`select count(*)::int n from crm_accounts where created_by = $1 and status = 'client' and created_at >= $2::date and created_at < $3::date`, [e.user_id, from, next]); return Number(r.n); }
     case 'followups': { if (!e.user_id) return null; const r = await one(`select count(*)::int n, count(*) filter (where follow_up_done)::int ok from crm_activities where by_user = $1 and follow_up_on between $2::date and $3::date`, [e.user_id, from, to]); return pct(r.ok, r.n); }
     case 'ticket_sla': { if (!e.user_id) return null; const r = await one(`select count(*)::int n, count(*) filter (where resolved_at <= sla_due_at)::int ok from tickets where assignee_user_id = $1 and resolved_at >= $2::date and resolved_at < $3::date and sla_due_at is not null`, [e.user_id, from, next]); return pct(r.ok, r.n); }
+    case 'deliverables': return deliverableScore(q, e.id, period);
     case 'manual': { if (!metricId) return null; const r = await one('select value from kpi_manual_scores where employee_id = $1 and metric_id = $2 and period = $3', [e.id, metricId, period]); return r.value == null ? null : Number(r.value); }
   }
 }

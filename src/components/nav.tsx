@@ -7,8 +7,12 @@ export interface NavLinkItem { key: string; label: string; href: string; icon: s
 
 const isActive = (path: string, href: string) => (href === '/dashboard' ? path === href : path === href || path.startsWith(href + '/'));
 
+/** Only the most specific matching link is highlighted, so /tasks/board does not also light up /tasks. */
+const bestMatch = (path: string, hrefs: string[]) => hrefs.filter((h) => isActive(path, h)).sort((a, b) => b.length - a.length)[0];
+
 export function SideNav({ groups, onNavigate }: { groups: [string, NavLinkItem[]][]; onNavigate?: () => void }) {
   const path = usePathname() ?? '';
+  const best = bestMatch(path, groups.flatMap(([, it]) => it.map((i) => i.href)));
   return (
     <nav aria-label="Main" className="space-y-5">
       {groups.map(([g, items]) => (
@@ -16,7 +20,7 @@ export function SideNav({ groups, onNavigate }: { groups: [string, NavLinkItem[]
           <p className="px-3 pb-1 text-[11px] font-semibold uppercase tracking-wider text-white/45">{g}</p>
           <ul className="space-y-0.5">
             {items.map((i) => {
-              const on = isActive(path, i.href);
+              const on = i.href === best;
               return (
                 <li key={i.key}>
                   <Link href={i.href} onClick={onNavigate} aria-current={on ? 'page' : undefined}

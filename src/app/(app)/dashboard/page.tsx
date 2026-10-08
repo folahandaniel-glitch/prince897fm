@@ -8,6 +8,7 @@ import { listAssessments } from '@/server/assessment';
 import { term } from '@/domain/config-schema';
 import { ActionForm } from '@/components/forms';
 import { Icon } from '@/components/icons';
+import { Avatar } from '@/components/avatar';
 import { Stat } from '@/components/ui';
 import { ColumnChart, Donut, Gauge, HBars, Sparkline } from '@/components/charts';
 import { formatMoney } from '@/domain/finance';
@@ -73,7 +74,7 @@ export default async function Dashboard() {
           <Card title="Birthdays & milestones" icon="bell">
             {birthdays.length === 0 && anniversaries.length === 0 ? <p className="text-sm text-muted">No birthdays or work anniversaries in the next 30 days. Add your own date of birth under <Link className="underline" href="/account/profile">My profile</Link>.</p> : (
               <ul className="divide-y divide-line text-sm">
-                {birthdays.map((b) => <li key={`b-${b.name}`} className="flex items-center justify-between gap-2 py-2"><span className="min-w-0 truncate">🎂 <strong>{b.name}</strong>{b.department && <span className="text-muted"> · {b.department}</span>}</span><span className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-semibold ${b.today ? 'bg-accent text-black' : 'bg-surface'}`}>{b.today ? 'Today!' : b.daysAway === 1 ? 'Tomorrow' : `${b.label} · ${b.daysAway}d`}</span></li>)}
+                {birthdays.map((b) => <li key={`b-${b.name}`} className="flex items-center justify-between gap-2 py-2"><span className="flex min-w-0 items-center gap-2 truncate"><Avatar userId={b.userId} sha={b.sha} name={b.name} size={28} />🎂 <strong className="truncate">{b.name}</strong>{b.department && <span className="text-muted"> · {b.department}</span>}</span><span className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-semibold ${b.today ? 'bg-accent text-black' : 'bg-surface'}`}>{b.today ? 'Today!' : b.daysAway === 1 ? 'Tomorrow' : `${b.label} · ${b.daysAway}d`}</span></li>)}
                 {anniversaries.map((b) => <li key={`a-${b.name}`} className="flex items-center justify-between gap-2 py-2"><span className="min-w-0 truncate">🏅 <strong>{b.name}</strong> <span className="text-muted">· {b.years} year{b.years === 1 ? '' : 's'} with us</span></span><span className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-semibold ${b.today ? 'bg-accent text-black' : 'bg-surface'}`}>{b.today ? 'Today!' : `${b.label} · ${b.daysAway}d`}</span></li>)}
               </ul>)}
           </Card>

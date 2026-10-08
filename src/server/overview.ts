@@ -9,7 +9,7 @@ import { visibleTo } from './calendar';
 const CUR = `a.superseded_at is null and a.kind = 'substantive' and a.valid_from <= current_date and (a.valid_to is null or a.valid_to > current_date)`;
 const todayUtc = () => new Date().toISOString().slice(0, 10);
 
-export interface Birthday { name: string; department: string | null; label: string; daysAway: number; today: boolean; years?: number }
+export interface Birthday { name: string; department: string | null; label: string; daysAway: number; today: boolean; years?: number; userId?: string | null; sha?: string | null }
 
 /** Days from `from` (YYYY-MM-DD) to the next occurrence of month/day, handling 29 February in non-leap years. */
 export function daysUntilNext(from: string, month: number, day: number): number {
@@ -26,10 +26,10 @@ export function daysUntilNext(from: string, month: number, day: number): number 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
 export async function upcomingBirthdays(c: Ctx, withinDays = 30, limit = 8): Promise<Birthday[]> {
-  const rows = await c.q.query<any>(`select e.full_name, d.name as department, e.birth_date::text as b from employees e left join assignments a on a.employee_id = e.id and ${CUR} left join departments d on d.id = a.department_id
+  const rows = await c.q.query<any>(`select e.full_name, e.user_id, ph.sha256 as sha, d.name as department, e.birth_date::text as b from employees e left join assignments a on a.employee_id = e.id and ${CUR} left join departments d on d.id = a.department_id left join user_photos ph on ph.user_id = e.user_id
     where e.birth_date is not null and not e.birthday_private and e.status <> 'exited' and not e.hidden`);
   const t = todayUtc();
-  return rows.map((r) => { const [, m, d] = r.b.split('-').map(Number); const n = daysUntilNext(t, m, d); return { name: r.full_name as string, department: r.department as string | null, label: `${d} ${MONTHS[m - 1]}`, daysAway: n, today: n === 0 }; })
+  return rows.map((r) => { const [, m, d] = r.b.split('-').map(Number); const n = daysUntilNext(t, m, d); return { name: r.full_name as string, department: r.department as string | null, label: `${d} ${MONTHS[m - 1]}`, daysAway: n, today: n === 0, userId: r.user_id as string | null, sha: r.sha as string | null }; })
     .filter((x) => x.daysAway <= withinDays).sort((a, b) => a.daysAway - b.daysAway || a.name.localeCompare(b.name)).slice(0, limit);
 }
 

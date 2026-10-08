@@ -12,6 +12,7 @@ import { SearchButton } from '@/components/search-button';
 import { BottomNav, SideNav, type NavLinkItem } from '@/components/nav';
 import { MenuDrawer } from '@/components/drawer';
 import { Icon } from '@/components/icons';
+import { Avatar } from '@/components/avatar';
 import { AnnouncementCarousel } from '@/components/announcement-carousel';
 
 async function logout() {
@@ -73,7 +74,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
             <SearchButton />
             <Link href="/dashboard#notifications" className="btn-ghost relative" aria-label={`Notifications, ${sh.unread} unread`}><Icon name="bell" />{sh.unread > 0 && <span className="absolute -right-1 -top-1 grid h-5 min-w-5 place-items-center rounded-full bg-accent px-1 text-[11px] font-bold text-black">{sh.unread > 99 ? '99+' : sh.unread}</span>}</Link>
             <details className="relative">
-              <summary className="btn-ghost cursor-pointer list-none" aria-label="Account menu"><Icon name="user" /><span className="hidden max-w-[10rem] truncate sm:inline">{sh.s.email}</span></summary>
+              <summary className="btn-ghost cursor-pointer list-none" aria-label="Account menu"><Avatar userId={sh.s.user_id} sha={sh.photo} name={sh.s.email} size={28} /><span className="hidden max-w-[10rem] truncate sm:inline">{sh.s.email}</span></summary>
               <div className="absolute right-0 z-40 mt-2 w-72 space-y-3 rounded-xl border border-line bg-panel p-3 shadow-xl">
                 <p className="truncate text-sm text-muted">{sh.s.email}</p>
                 <ThemeToggle />

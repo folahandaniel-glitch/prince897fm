@@ -78,7 +78,7 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
           <p className="mt-1 text-sm text-slate-400">{backend ? 'This is the control centre for the Super Administrator. Sign in with your Super Admin email and password: after that you go straight to the BackEnd.' : 'Use the organisation code, email and password you were given.'}</p>
           {backend && <p className="mt-3 rounded-lg border border-white/15 bg-white/5 px-3 py-2 text-xs text-slate-300">Not a Super Administrator? <a className="underline" href="/login">Use the normal staff sign in</a>.</p>}
           <LoginForm action={signIn} defaultOrg={slug} next={next} />
-          <p className="mt-6 text-sm text-slate-400">New here? Ask HR for your registration link.</p>
+          {!backend && <a href={`/register/${slug}`} className="mt-6 block rounded-xl border border-white/20 bg-white/5 px-4 py-3 text-center text-sm font-semibold text-white hover:bg-white/10">New staff? Register here</a>}
           <div className="mt-10 border-t border-white/10 pt-5 text-center">
             <p className="text-xs text-slate-400">{b.footer}</p>
             <p className="mt-1"><a href="/login?next=/backend" className="inline-block px-2 py-1 text-[10px] uppercase tracking-widest text-slate-400 hover:text-white hover:underline">BackEnd</a></p>

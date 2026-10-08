@@ -21,6 +21,12 @@ Universal, multi-tenant, configuration-driven enterprise platform by **Fodan Sof
 | Messaging | Every in-app notice is mirrored to email (opt-out per person) through an outbox; email via Resend, SMS via Termii (optional); password reset by email |
 | Leave | Public holidays (not counted as leave days), pro-rata for new joiners, capped carry-over |
 | Branding | Colours, names, terminology, and logo/emblem upload, all versioned (draft, publish, rollback) |
+| KPIs | Standard KPI profiles for a radio station by department (Programmes, News, Production, Engineering, Advertising & marketing, Finance, Administration & HR, Security) and by level (executive to intern). Measures come from the system (punctuality, attendance, tasks, reports, tickets, CRM revenue) or are rated by supervisors; weights are editable and must total 100; months can be finalised |
+| Monthly assessment | Administrators upload Product & Service knowledge questions as Word, PDF or PowerPoint (correct answer marked with `*` in front), preview before importing, schedule the month, and see results; staff take it once, it is marked on the server and feeds their KPI |
+| Clock-in locations | Default is "must be at an assigned workplace". HR and administrators can set: any branch, hybrid (chosen weekdays), remote, field duty, or a temporary outside-broadcast exception, always with a reason |
+| Auto sign-out | A session left open after the rostered shift ends (plus 15 minutes) is closed at the shift end, flagged for the supervisor, and the person is signed out |
+| Oversight | Administrators see what staff create across the front end (tasks, documents, tickets, clients, events, announcements, module records), filter by person, remove with an audited reason, and manage every account |
+| Staff dashboard | KPI score and trend, birthdays and work anniversaries, who is on duty and on leave, station pulse, upcoming events, graphical marketing statistics (money shown only to people who may see CRM or finance) and income vs spending (finance only) |
 | Branches & locations | BackEnd/Admin: add, edit, archive branches with address and Google coordinates (pasted from Google Maps, or "use my location"); a matching geofence is kept in sync for clock-in |
 | Announcements | A rotating banner on every page (auto-advance, pause, arrows, swipe, dots); post, edit, pin, expire and remove from Announcements |
 | Edit controls | Rename departments/positions, edit employee details, shifts, leave types, training courses and CRM accounts (all audited) |
@@ -43,7 +49,7 @@ With no `DATABASE_URL`, an embedded Postgres (PGlite) is stored in `.data/pg` an
 (`prince897` radio station, `gracechapel` church). Generated demo sign-in details are written to `.data/seed-credentials.txt` (git-ignored).
 
 ```bash
-npm test             # 269 tests
+npm test             # 314 tests
 npm run typecheck
 npm run build
 ```

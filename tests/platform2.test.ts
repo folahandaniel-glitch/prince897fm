@@ -194,7 +194,11 @@ describe('dashboards, wallboards and pages', () => {
 
 describe('the BackEnd (Super Administrator)', () => {
   it('is available only to the Super Administrator; the Chairman and admins cannot open it', async () => {
-    for (const who of ['chairman', 'admin', 'hr']) { await expect(as(who, (c) => overview(c))).rejects.toBeInstanceOf(ForbiddenError); await expect(as(who, (c) => listUsers(c))).rejects.toBeInstanceOf(ForbiddenError); }
+    // The BackEnd control centre is for the Super Administrator only.
+    for (const who of ['chairman', 'admin', 'hr']) await expect(as(who, (c) => overview(c))).rejects.toBeInstanceOf(ForbiddenError);
+    // Account administration is shared with the Administrator (admin:control); the Chairman and HR still cannot do it.
+    for (const who of ['chairman', 'hr']) await expect(as(who, (c) => listUsers(c))).rejects.toBeInstanceOf(ForbiddenError);
+    expect((await as('admin', (c) => listUsers(c))).length).toBeGreaterThan(5);
     const o = await as('superadmin', (c) => overview(c));
     expect(o.users).toBeGreaterThan(5);
     expect(o.migrations.length).toBeGreaterThanOrEqual(9);

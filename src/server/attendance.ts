@@ -1,5 +1,6 @@
 import crypto from 'node:crypto';
 import { carryOver, leaveEntitlement } from '../domain/leave';
+import { effectiveMode } from './modes';
 import {
   addDays, classifyClockIn, countDays, detectRosterConflicts, expandPattern, parsePattern, evaluateLocation, impossibleTravel, localParts, toMin, workDateFor,
   type ShiftDef,
@@ -191,17 +192,25 @@ export async function clockIn(c: Ctx, input: ClockInput): Promise<ClockResult> {
     return { ok: false, code: 'too_early', message: `Clock-in opens ${timing.minutesUntilWindow} minute(s) before ${resolved.shift.start}. Please try again shortly.` };
   }
 
-  const wps = await authorisedWorkplaces(c.q, emp.id, emp.branch_id, local.date);
-  if (wps.length === 0) {
+  const pol = await effectiveMode(c.q, emp.id, local.date);
+  let wps = await authorisedWorkplaces(c.q, emp.id, emp.branch_id, local.date);
+  if (pol.anyBranch) { // "any branch": every active headquarters, branch or office is acceptable
+    wps = (await c.q.query<any>(`select w.* from workplaces w where w.active and w.kind in ('headquarters','branch','office') and (w.valid_from is null or w.valid_from <= $1::date) and (w.valid_to is null or w.valid_to >= $1::date)`, [local.date])).map((w) => ({ ...w, latitude: num(w.latitude), longitude: num(w.longitude) }));
+  }
+  if (wps.length === 0 && !pol.exemptKind) {
     await attempt('blocked_no_workplace', 'no_authorised_workplace');
     return { ok: false, code: 'no_workplace', message: 'You have no authorised workplace yet. Ask HR to assign one, or submit an attendance request.' };
   }
-  const candidates = input.workplaceId ? wps.filter((w) => w.id === input.workplaceId) : wps;
-  if (candidates.length === 0) return { ok: false, code: 'bad_workplace', message: 'That workplace is not authorised for you.' };
+  const candidates = input.workplaceId && !pol.exemptKind ? wps.filter((w) => w.id === input.workplaceId) : wps;
+  if (candidates.length === 0 && !pol.exemptKind) return { ok: false, code: 'bad_workplace', message: 'That workplace is not authorised for you.' };
 
   const reported = input.lat != null && input.lng != null ? { lat: input.lat, lng: input.lng, accuracyM: input.accuracyM ?? null } : null;
   let chosen: { wp: any; verdict: ReturnType<typeof evaluateLocation> } | null = null;
-  for (const wp of candidates) {
+  if (pol.exemptKind) {
+    // Location is not enforced for this person today (hybrid remote day, remote, field duty, outside broadcast). It is still recorded when shared.
+    const near = candidates[0] ?? null;
+    chosen = { wp: near ? { ...near, location_required: false, kind: pol.exemptKind } : { id: null, name: pol.exemptKind === 'remote' ? 'your remote location' : 'your field location', location_required: false, kind: pol.exemptKind, radius_m: 0 }, verdict: { status: 'inside', distanceM: null } };
+  } else for (const wp of candidates) {
     if (!wp.location_required) { chosen = { wp, verdict: { status: 'inside', distanceM: null } }; if (wp.kind !== 'remote' && wp.kind !== 'field') break; continue; }
     const v = evaluateLocation(reported, { lat: wp.latitude, lng: wp.longitude, radiusM: wp.radius_m });
     if (!chosen || (v.status === 'inside' && (chosen.verdict.status !== 'inside' || !chosen.wp.location_required)) || (chosen.verdict.status === 'outside' && v.status === 'unverifiable')) chosen = { wp, verdict: v };
@@ -506,4 +515,40 @@ export async function assignPattern(c: Ctx, i: { employeeId: string; pattern: st
     }
   }
   return { created: created.sort(), blocked, warnings };
+}
+
+/**
+ * Closes sessions that were left open after the rostered shift ended (plus a grace period), at the shift's end time, and signs the person out
+ * of the app. Returns the users who were signed out. Runs from a daily cron and, throttled, whenever anyone in the organisation uses the app.
+ */
+export async function autoCloseOverdue(q: Q, orgId: string, graceMinutes = 15): Promise<string[]> {
+  const rows = await q.query<{ id: string; user_id: string | null; employee_id: string; shift_end: Date }>(
+    `select s.id, e.user_id, s.employee_id,
+            ((s.work_date + sh.end_time + case when sh.end_time <= sh.start_time then interval '1 day' else interval '0' end) at time zone o.timezone) as shift_end
+       from attendance_sessions s join shifts sh on sh.id = s.shift_id join employees e on e.id = s.employee_id join organizations o on o.id = s.org_id
+      where s.status = 'open' and (((s.work_date + sh.end_time + case when sh.end_time <= sh.start_time then interval '1 day' else interval '0' end) at time zone o.timezone) + ($1 || ' minutes')::interval) < now()`, [String(graceMinutes)]);
+  const users: string[] = [];
+  for (const r of rows) {
+    // clock-out is recorded at the end of the shift (never before the clock-in), and the entry is flagged for the supervisor
+    const done = await q.query<{ id: string }>(
+      `update attendance_sessions set status = 'closed', clock_out_at = greatest($2::timestamptz, clock_in_at + interval '1 minute'), flags = array_append(flags, 'auto_closed'), note = coalesce(note || ' ', '') || 'Signed out automatically after the shift ended.' where id = $1 and status = 'open' returning id`, [r.id, r.shift_end]);
+    if (!done[0]) continue;
+    await audit(q, { orgId, action: 'attendance.auto_closed', entity: 'attendance_session', entityId: r.id, after: { shiftEnd: r.shift_end } });
+    if (r.user_id) {
+      await q.query('delete from sessions where user_id = $1', [r.user_id]);
+      await q.query(`insert into notifications (org_id, user_id, title, body, href, dedupe_key) values ($1,$2,$3,$4,'/attendance',$5) on conflict do nothing`,
+        [orgId, r.user_id, 'You were signed out after your shift', 'You forgot to clock out, so your shift was closed at its scheduled end time and you were signed out. Tell your supervisor if you worked longer.', `autoclose:${r.id}`]);
+      users.push(r.user_id);
+    }
+  }
+  return users;
+}
+
+const lastAutoClose = new Map<string, number>();
+/** Runs the overdue check at most every two minutes per organisation. Returns true when this user was just signed out. */
+export async function autoCloseThrottled(q: Q, orgId: string, userId: string): Promise<boolean> {
+  const now = Date.now();
+  if (now - (lastAutoClose.get(orgId) ?? 0) < 120_000) return false;
+  lastAutoClose.set(orgId, now);
+  try { return (await autoCloseOverdue(q, orgId)).includes(userId); } catch (e) { console.error('[auto close]', e); return false; }
 }

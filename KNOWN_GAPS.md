@@ -21,7 +21,9 @@
 - Leave: public holidays exist (moveable ones are entered by hand); carry-over is a single yearly cap with no expiry date.
 - Training: records and certificates are tracked as data; there is no course content delivery or online assessment.
 - Rosters: shift cover, two-way exchanges and repeating rotations exist; there are no minimum-coverage rules yet.
-- Attendance: rotating QR and WebAuthn step-up not built; verify the HQ geofence radius on site.
+- Attendance: rotating QR and WebAuthn step-up not built; verify the HQ geofence radius on site. The automatic sign-out grace period is fixed at 15 minutes after the shift end.
+- KPIs: the standard weights are a sensible starting point for a radio station, not a validated HR instrument; HR should review them. Revenue measures use deals marked won in the CRM with their close date. Training and discipline records are not yet KPI inputs.
+- Monthly assessment: one attempt per person, no question-level randomised option order, no image questions. The `*` marking convention is required; unmarked files are rejected with a clear message. Scanned (image-only) PDFs contain no text and cannot be read.
 - Workflow builder is data-driven but has no visual designer. Search covers staff, tasks, departments, documents, clients, tickets and finance, each through that module's own access rules.
 - Wallboard TV/device testing not done.
 - Tenant custom domains are not built (use Vercel's domain settings for the whole deployment). Logos and emblems can be uploaded (PNG/JPEG/WebP up to 1 MB); app-install icons still come from the generated set.

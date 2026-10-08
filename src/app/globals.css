@@ -127,3 +127,16 @@ img, svg { max-width: 100%; }
 .auth-portrait { position: absolute; right: -0.4rem; bottom: -0.9rem; width: 31%; max-width: 190px; flex: none; z-index: 3; }
 @media (max-width: 640px) { .auth-portrait { width: 34%; bottom: -0.6rem; } }
 @media (prefers-reduced-motion: reduce) { .auth-studio, .studio3d .st-meter, .studio3d .st-led, .studio3d .st-onair, .studio3d .st-wave { animation: none !important; } }
+
+/* ---- Phones: never let the page scroll sideways ---- */
+html, body { max-width: 100%; overflow-x: clip; }
+body { overflow-wrap: anywhere; }
+main, section, article, aside, header, footer, nav, form, fieldset, li, dl, details { min-width: 0; }
+img, svg, video, canvas, iframe, select, input, textarea { max-width: 100%; }
+pre, code { white-space: pre-wrap; overflow-wrap: anywhere; }
+table { max-width: 100%; }
+.card { min-width: 0; overflow-wrap: anywhere; }
+@media (max-width: 640px) {
+  .input, select.input, textarea.input { font-size: 16px; } /* stops iOS zooming into fields, which also shifts the page sideways */
+  details > summary { overflow-wrap: anywhere; }
+}

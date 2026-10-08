@@ -1,6 +1,8 @@
 import crypto from 'node:crypto';
 import { privileged } from '@/server/db';
 import { boot } from '@/server/session';
+import { withTenant } from '@/server/db';
+import { autoCloseOverdue } from '@/server/attendance';
 
 export const dynamic = 'force-dynamic';
 
@@ -13,5 +15,8 @@ export async function GET(req: Request) {
   if (!ok) return new Response('Unauthorized', { status: 401 });
   await boot();
   const rows = await (await privileged()).query<{ id: string }>(`update attendance_sessions set status = 'missed_clock_out' where status = 'open' and clock_in_at < now() - interval '18 hours' returning id`);
-  return Response.json({ flagged: rows.length });
+  const orgs = await (await privileged()).query<{ id: string }>(`select id from organizations where status = 'active'`);
+  let autoClosed = 0;
+  for (const o of orgs) autoClosed += (await withTenant(o.id, (q) => autoCloseOverdue(q, o.id))).length;
+  return Response.json({ flagged: rows.length, autoClosed });
 }

@@ -11,13 +11,14 @@ import { seedFinanceDefaults } from './finance';
 import { seedRules } from './discipline';
 import { seedTicketCategories } from './tickets';
 import { createSuperAdmin } from './seed';
+import { ensureKpiDefaults } from './kpi';
 
 const CUR = `a.superseded_at is null and a.kind = 'substantive' and a.valid_from <= current_date and (a.valid_to is null or a.valid_to > current_date)`;
 const emailOk = (e: string) => /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(e);
 
 // ---- Users and roles -----------------------------------------------------------------------------------------------------------------------------
 export async function listUsers(c: Ctx) {
-  need(c, 'backend:access');
+  need(c, 'admin:control');
   return c.q.query<any>(
     `select u.id, u.email, u.status, u.must_change_password, u.mfa_enabled, u.hidden, e.full_name, e.employee_no, d.name as department,
             (select coalesce(json_agg(r.name order by r.name), '[]'::json) from user_roles ur join roles r on r.id = ur.role_id where ur.user_id = u.id) as roles,
@@ -26,12 +27,12 @@ export async function listUsers(c: Ctx) {
 }
 
 export async function listRoles(c: Ctx) {
-  need(c, 'backend:access');
+  need(c, 'admin:control');
   return c.q.query<any>(`select r.id, r.key, r.name, r.permissions, r.is_system, r.hidden, (select count(*)::int from user_roles ur where ur.role_id = r.id) as members from roles r order by r.hidden desc, r.name`);
 }
 
 export async function createUser(c: Ctx, i: { email: string; fullName: string; roleKey: string; departmentId?: string | null; positionId?: string | null }) {
-  need(c, 'backend:access');
+  need(c, 'admin:control');
   const email = i.email.trim().toLowerCase();
   if (!emailOk(email)) throw new UserError('Enter a valid email address.');
   if (i.fullName.trim().length < 2) throw new UserError('Enter the full name.');
@@ -50,7 +51,7 @@ export async function createUser(c: Ctx, i: { email: string; fullName: string; r
 }
 
 export async function resetPassword(c: Ctx, userId: string) {
-  need(c, 'backend:access');
+  need(c, 'admin:control');
   const u = (await c.q.query<any>('select id, email, hidden from users where id = $1', [userId]))[0];
   if (!u) throw new UserError('User not found.');
   if (u.id === c.userId) throw new UserError('Use "Change password" on your own account page.');
@@ -62,7 +63,7 @@ export async function resetPassword(c: Ctx, userId: string) {
 }
 
 export async function setUserStatus(c: Ctx, userId: string, active: boolean, reason: string) {
-  need(c, 'backend:access');
+  need(c, 'admin:control');
   if (userId === c.userId) throw new UserError('You cannot disable your own account.');
   if (!active && reason.trim().length < 5) throw new UserError('Give a reason.');
   const u = (await c.q.query('select id from users where id = $1', [userId]))[0];
@@ -73,7 +74,7 @@ export async function setUserStatus(c: Ctx, userId: string, active: boolean, rea
 }
 
 export async function setUserRoles(c: Ctx, userId: string, roleKeys: string[]) {
-  need(c, 'backend:access');
+  need(c, 'admin:control');
   if (roleKeys.length === 0) throw new UserError('A user needs at least one role.');
   if (roleKeys.includes('super_admin')) throw new UserError('The Super Administrator role cannot be granted from here.');
   const u = (await c.q.query<any>('select id, hidden from users where id = $1', [userId]))[0];
@@ -114,6 +115,7 @@ export const FEATURES: { key: string; label: string; note: string }[] = [
   { key: 'documents', label: 'Documents', note: 'Library with expiry alerts.' },
   { key: 'mail', label: 'Internal mail', note: '' },
   { key: 'calendar', label: 'Calendar and events', note: '' },
+  { key: 'kpi', label: 'KPIs and monthly assessment', note: 'Performance scores and the knowledge assessment.' },
   { key: 'training', label: 'Training and certification', note: 'Courses, records, expiry alerts.' },
   { key: 'builders', label: 'Builders and custom modules', note: 'Modules, forms, dashboards, pages.' },
 ];
@@ -210,6 +212,7 @@ export async function createOrganization(i: ProvisionInput, byUserId: string | n
     await q.query('insert into user_roles (org_id, user_id, role_id) values ($1,$2,$3)', [orgId, userId, roleIds.tenant_admin]);
     await q.query(`insert into employees (org_id, user_id, employee_no, full_name, email) values ($1,$2,'EMP-0001',$3,$4)`, [orgId, userId, i.adminName?.trim() || 'Administrator', i.adminEmail.trim().toLowerCase()]);
     await seedFinanceDefaults(q, orgId, userId, 0);
+    await ensureKpiDefaults(q, orgId);
     await audit(q, { orgId, actorUserId: userId, action: 'organization.provisioned', entity: 'organization', entityId: orgId, after: { template: t.key, by: byUserId } });
   });
   let superPw: string | null = null;

@@ -59,7 +59,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         <div className="mb-6 px-1">{Brand}</div>
         <SideNav groups={grouped} />
       </aside>
-      <div className="flex min-h-[100dvh] flex-col">
+      <div className="flex min-h-[100dvh] min-w-0 flex-col">
         <header className="no-print sticky top-0 z-30 flex items-center justify-between gap-2 border-b border-line bg-panel/90 px-3 py-2 backdrop-blur sm:px-4">
           <div className="flex items-center gap-2">
             <MenuDrawer groups={grouped} brand={Brand} />
@@ -78,6 +78,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
                 <p className="truncate text-sm text-muted">{sh.s.email}</p>
                 <ThemeToggle />
                 <InstallMenuItem />
+                <Link href="/account/profile" className="btn-ghost w-full justify-start"><Icon name="user" className="h-4 w-4" /> My profile</Link>
                 <Link href="/account/notifications" className="btn-ghost w-full justify-start"><Icon name="bell" className="h-4 w-4" /> Notification settings</Link>
                 <Link href="/account/security" className="btn-ghost w-full justify-start"><Icon name="lock" className="h-4 w-4" /> Security & password</Link>
                 <form action={logout}><button className="btn-ghost w-full" type="submit">Sign out</button></form>
@@ -86,7 +87,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
           </div>
         </header>
         {!sh.disabled.has('announcements') && <AnnouncementCarousel items={sh.announcements} canPost={can(sh.subject, 'announcement:post').allow} brandLogo={b.markUrl || undefined} />}
-        <main id="main" className="mx-auto w-full max-w-6xl flex-1 p-3 pb-24 sm:p-6 lg:pb-8">{children}</main>
+        <main id="main" className="mx-auto w-full min-w-0 max-w-6xl flex-1 p-3 pb-24 sm:p-6 lg:pb-8">{children}</main>
         <footer className="no-print border-t border-line px-4 pb-24 pt-4 text-center lg:pb-4">
           <p className="text-xs text-muted">{b.footer}</p>
           <p className="mt-1"><Link href="/backend" className="text-[9px] uppercase tracking-widest text-muted/60 hover:text-muted hover:underline">BackEnd</Link></p>

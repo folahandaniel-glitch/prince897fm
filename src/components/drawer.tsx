@@ -1,18 +1,27 @@
 'use client';
 import { useEffect, useState } from 'react';
+import { usePathname } from 'next/navigation';
 import { SideNav, type NavLinkItem } from './nav';
 import { Icon } from './icons';
 
 /** Slide-over navigation for phones and tablets (opened from the header or the bottom bar's "More"). */
 export function MenuDrawer({ groups, brand }: { groups: [string, NavLinkItem[]][]; brand: React.ReactNode }) {
   const [open, setOpen] = useState(false);
+  const pathname = usePathname();
+  // However the person moves to another page (a link, the back button, a notification), the menu closes and the page can scroll again.
+  useEffect(() => { setOpen(false); }, [pathname]);
   useEffect(() => {
     const o = () => setOpen(true);
     const k = (e: KeyboardEvent) => { if (e.key === 'Escape') setOpen(false); };
     window.addEventListener('ws-open-menu', o); window.addEventListener('keydown', k);
     return () => { window.removeEventListener('ws-open-menu', o); window.removeEventListener('keydown', k); };
   }, []);
-  useEffect(() => { document.body.style.overflow = open ? 'hidden' : ''; return () => { document.body.style.overflow = ''; }; }, [open]);
+  useEffect(() => {
+    document.body.style.overflow = open ? 'hidden' : '';
+    const widen = () => { if (window.innerWidth >= 1024) setOpen(false); }; // a rotated tablet or resized window must never keep the page locked
+    window.addEventListener('resize', widen);
+    return () => { document.body.style.overflow = ''; window.removeEventListener('resize', widen); };
+  }, [open]);
   return (
     <>
       <button type="button" className="btn-ghost lg:hidden" aria-label="Open menu" aria-expanded={open} onClick={() => setOpen(true)}><Icon name="menu" /></button>

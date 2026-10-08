@@ -9,6 +9,7 @@ import { seedRules } from './discipline';
 import { seedTicketCategories } from './tickets';
 import { DEFAULT_SETTINGS } from '../domain/payroll';
 import { hashPassword } from './auth';
+import { ensureKpiDefaults } from './kpi';
 import { privileged, withTenant } from './db';
 
 interface Template {
@@ -98,8 +99,8 @@ export async function seedOrganization(t: Template, creds: string[]) {
       const [{ id: userId }] = await q.query<{ id: string }>('insert into users (org_id, email, password_hash) values ($1,$2,$3) returning id', [orgId, person.email, hashPassword(pw)]);
       await q.query('insert into user_roles (org_id, user_id, role_id) values ($1,$2,$3)', [orgId, userId, ids[`role:${person.role}`]]);
       const [{ id: empId }] = await q.query<{ id: string }>(
-        `insert into employees (org_id, user_id, employee_no, full_name, email, joined_on) values ($1,$2,$3,$4,$5, current_date - 400) returning id`,
-        [orgId, userId, `EMP-${String(++n).padStart(4, '0')}`, person.name, person.email]);
+        `insert into employees (org_id, user_id, employee_no, full_name, email, joined_on, birth_date) values ($1,$2,$3,$4,$5, current_date - 400, (current_date + $6::int - interval '30 years')::date) returning id`,
+        [orgId, userId, `EMP-${String(++n).padStart(4, '0')}`, person.name, person.email, (n * 5) % 45]); // demo birthdays spread over the next weeks
       await q.query(`insert into assignments (org_id, employee_id, department_id, branch_id, position_id, valid_from, reason) values ($1,$2,$3,$4,$5, current_date - 400, 'Initial assignment')`,
         [orgId, empId, ids[`d:${person.dept}`], ids[`b:${person.branch}`], ids[`p:${person.position}`]]);
       empByEmail[person.email] = empId;
@@ -146,6 +147,7 @@ export async function seedOrganization(t: Template, creds: string[]) {
     await q.query('update branches set latitude = $2, longitude = $3, radius_m = $4, address = $5, is_headquarters = true where id = $1', [ids[`b:${t.branches[0].name}`], hq.lat, hq.lng, hq.radius, hq.address]);
     for (const [name, days, paid] of [['Annual leave', 20, true], ['Sick leave', 12, true], ['Compassionate leave', 5, true], ['Maternity leave', 84, true], ['Study leave', 0, false]] as const)
       await q.query('insert into leave_types (org_id, name, annual_days, paid) values ($1,$2,$3,$4)', [orgId, name, days, paid]);
+    await ensureKpiDefaults(q, orgId);
     await audit(q, { orgId, action: 'organization.provisioned', entity: 'organization', entityId: orgId, after: { template: t.template } });
   });
   if (t.superAdmin) await createSuperAdmin(orgId, t.superAdmin, creds, t.slug);

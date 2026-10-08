@@ -6,7 +6,7 @@ import { roleKeys } from './builders';
 
 const CUR = `a.superseded_at is null and a.kind = 'substantive' and a.valid_from <= current_date and (a.valid_to is null or a.valid_to > current_date)`;
 const supers = (c: Ctx) => c.subject.grants.some((g) => g.permissions.includes('*'));
-const visibleTo = (c: Ctx, roles: string[]) => supers(c) || hasAccess(roles, roleKeys(c));
+export const visibleTo = (c: Ctx, roles: string[]) => supers(c) || hasAccess(roles, roleKeys(c));
 
 export async function createEvent(c: Ctx, i: { title: string; kind: string; startsAt: string; endsAt?: string; allDay?: boolean; location?: string; description?: string; roles: string[]; departmentIds?: string[] }) {
   need(c, 'event:create');

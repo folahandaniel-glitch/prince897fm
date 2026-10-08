@@ -9,6 +9,12 @@ import { publishDraft, resolveConfig, rollbackTo, saveDraft, configHistory } fro
 import { verifyAuditChain } from '../src/server/audit';
 
 const creds: Record<string, string> = {};
+const regIds = async () => withTenant(ids.prince897, async (q) => ({
+  orgSlug: 'prince897', phone: '08030000000', birthDate: '1992-02-02', employmentType: 'permanent',
+  departmentId: (await q.query<any>(`select id from departments where archived_at is null limit 1`))[0].id as string,
+  branchId: (await q.query<any>(`select id from branches where archived_at is null limit 1`))[0].id as string,
+  positionId: (await q.query<any>(`select id from positions where archived_at is null limit 1`))[0].id as string,
+}));
 const ids: Record<string, any> = {};
 
 async function user(org: string, email: string) {
@@ -103,8 +109,8 @@ describe('employee identity and history', () => {
     const me = (await withTenant(ids.prince897, (q) => q.query<any>('select id from employees where user_id = $1', [p.id])))[0].id;
     await expect(runAs(ids.prince897, p.id, (c) => getEmployee(c, me))).resolves.toBeTruthy();
   });
-  it('tenant admin without transfer permission cannot transfer', async () => {
-    const a = await user('prince897', 'admin@prince897.example');
+  it('a person without transfer permission cannot transfer (the Administrator now holds it)', async () => {
+    const a = await user('prince897', 'presenter@prince897.example');
     await expect(runAs(ids.prince897, a.id, (c) => transferEmployee(c, { employeeId: empId, effectiveFrom: '2026-09-01', reason: 'x' }))).rejects.toBeInstanceOf(ForbiddenError);
   });
 });
@@ -118,7 +124,7 @@ describe('registration: requested authority is not actual authority', () => {
       chairman: (await q.query<any>(`select id from positions where name = 'Chairman'`))[0].id,
       junior: (await q.query<any>(`select id from positions where name = 'Junior Staff'`))[0].id,
     }));
-    await submitRegistration({ orgSlug: 'prince897', fullName: 'Pending Person', email: 'pending@prince897.example', password: 'a-long-unique-passphrase-9', departmentId: structure.dept, positionId: structure.chairman });
+    await submitRegistration({ ...(await regIds()), fullName: 'Pending Person', username: 'pending.person', email: 'pending@prince897.example', password: 'a-long-unique-passphrase-9', departmentId: structure.dept, positionId: structure.chairman });
     expect((await login('prince897', 'pending@prince897.example', 'a-long-unique-passphrase-9')).ok).toBe(false);
     const [req] = await runAs(ids.prince897, hr.id, (c) => listRegistrations(c));
     await runAs(ids.prince897, hr.id, (c) => decideRegistration(c, { requestId: req.id, approve: true, departmentId: structure.news, positionId: structure.junior }));
@@ -129,9 +135,9 @@ describe('registration: requested authority is not actual authority', () => {
     expect(cur?.department).toBe('News');
   });
   it('rejects weak passwords and cannot grant elevated roles without role:manage', async () => {
-    await expect(submitRegistration({ orgSlug: 'prince897', fullName: 'Weak', email: 'weak@x.example', password: 'short' })).rejects.toThrow(/12 characters/);
+    await expect(submitRegistration({ ...(await regIds()), fullName: 'Weak', username: 'weak.user', email: 'weak@x.example', password: 'short' })).rejects.toThrow(/12 characters/);
     const hr = await user('prince897', 'hr@prince897.example');
-    await submitRegistration({ orgSlug: 'prince897', fullName: 'Escalator', email: 'esc@prince897.example', password: 'another-long-passphrase-7' });
+    await submitRegistration({ ...(await regIds()), fullName: 'Escalator', username: 'escalator', email: 'esc@prince897.example', password: 'another-long-passphrase-7' });
     const [req] = await runAs(ids.prince897, hr.id, (c) => listRegistrations(c));
     await expect(runAs(ids.prince897, hr.id, (c) => decideRegistration(c, { requestId: req.id, approve: true, roleKey: 'tenant_admin' }))).rejects.toBeInstanceOf(ForbiddenError);
   });

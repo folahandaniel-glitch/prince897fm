@@ -94,8 +94,8 @@ describe('approval bands: bigger amounts need more approvers', () => {
 });
 
 describe('who can see or do what', () => {
-  it('HR, Tenant Admin and employees have no finance access by default', async () => {
-    for (const who of ['hr', 'admin', 'presenter']) {
+  it('HR and employees have no finance access by default (the Administrator controls finance set-up and entries but not the Chairman-stage approvals)', async () => {
+    for (const who of ['hr', 'presenter']) {
       await expect(as(who, (c) => listAccounts(c.q).then(() => trialBalance(c)))).rejects.toBeInstanceOf(ForbiddenError);
       await expect(as(who, (c) => financeOverview(c))).rejects.toBeInstanceOf(ForbiddenError);
     }

@@ -152,7 +152,7 @@ export async function notify(q: Q, orgId: string, userId: string, title: string,
 // ---- Registration (requested != actual authority) ------------------------------------------------------
 export interface RegistrationInput {
   orgSlug: string; fullName: string; email: string; phone?: string; password: string;
-  departmentId?: string; branchId?: string; positionId?: string; employmentType?: string;
+  departmentId?: string; branchId?: string; positionId?: string; employmentType?: string; username?: string; birthDate?: string;
 }
 
 export async function submitRegistration(input: RegistrationInput) {
@@ -161,17 +161,27 @@ export async function submitRegistration(input: RegistrationInput) {
   if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) throw new UserError('Enter a valid email address.');
   const problem = passwordProblem(input.password, { email });
   if (problem) throw new UserError(problem);
+  const username = (input.username ?? '').trim().toLowerCase();
+  if (!/^[a-z0-9][a-z0-9._-]{2,29}$/.test(username)) throw new UserError('Choose a username of 3 to 30 characters using letters, numbers, dots, dashes or underscores.');
+  const phone = (input.phone ?? '').replace(/[\s()-]/g, '');
+  if (!/^\+?\d{7,15}$/.test(phone)) throw new UserError('Enter a valid phone number (digits only, 7 to 15 numbers).');
+  const dob = input.birthDate ?? '';
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(dob) || Number.isNaN(Date.parse(dob)) || dob > new Date().toISOString().slice(0, 10) || Number(dob.slice(0, 4)) < 1930 || Number(dob.slice(0, 4)) > new Date().getUTCFullYear() - 14) throw new UserError('Enter your date of birth.');
+  if (!input.departmentId || !input.branchId || !input.positionId) throw new UserError('Choose your department, branch and position.');
+  if (!['permanent', 'contract', 'probation', 'intern', 'volunteer', 'freelance'].includes(input.employmentType ?? '')) throw new UserError('Choose your employment type.');
   const org = (await (await privileged()).query<any>(`select id from organizations where slug = $1 and status = 'active'`, [input.orgSlug.toLowerCase()]))[0];
   if (!org) throw new UserError('Organisation not found.');
   const hash = hashPassword(input.password);
   await withTenant(org.id, async (q) => {
     const taken = await q.query('select 1 from users where email = $1 union all select 1 from registration_requests where email = $1 and status = $2', [email, 'pending']);
     if (taken[0]) throw new UserError('A registration or account already exists for this email.');
+    const nameTaken = await q.query('select 1 from users where username = $1 or email = $1 union all select 1 from registration_requests where username = $1 and status = $2', [username, 'pending']);
+    if (nameTaken[0]) throw new UserError('That username is already taken. Choose another.');
     await Promise.all([owned(q, 'departments', input.departmentId, 'department'), owned(q, 'branches', input.branchId, 'branch'), owned(q, 'positions', input.positionId, 'position')]);
     const [{ id }] = await q.query<{ id: string }>(
-      `insert into registration_requests (org_id, email, full_name, phone, password_hash, requested_department_id, requested_branch_id, requested_position_id, requested_employment_type)
-       values ($1,$2,$3,$4,$5,$6,$7,$8,$9) returning id`,
-      [org.id, email, input.fullName.trim(), input.phone ?? null, hash, input.departmentId || null, input.branchId || null, input.positionId || null, input.employmentType ?? null]);
+      `insert into registration_requests (org_id, email, full_name, phone, password_hash, requested_department_id, requested_branch_id, requested_position_id, requested_employment_type, username, birth_date)
+       values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) returning id`,
+      [org.id, email, input.fullName.trim(), phone, hash, input.departmentId || null, input.branchId || null, input.positionId || null, input.employmentType ?? null, username, dob]);
     await audit(q, { orgId: org.id, action: 'registration.submitted', entity: 'registration', entityId: id, after: { email, requested: { department: input.departmentId, position: input.positionId } } });
   });
 }
@@ -205,12 +215,13 @@ export async function decideRegistration(c: Ctx, d: Decision) {
   if (!role) throw new UserError('Unknown role.');
   // Granting anything beyond the base role requires the ability to manage roles.
   if (role.key !== 'employee') need(c, 'role:manage');
-  const [{ id: userId }] = await c.q.query<{ id: string }>(`insert into users (org_id, email, password_hash) values ($1,$2,$3) returning id`, [c.orgId, r.email, r.password_hash]);
+  const [{ id: userId }] = await c.q.query<{ id: string }>(`insert into users (org_id, email, password_hash, username) values ($1,$2,$3,$4) returning id`, [c.orgId, r.email, r.password_hash, r.username ?? null]);
   await c.q.query('insert into user_roles (org_id, user_id, role_id, granted_by) values ($1,$2,$3,$4)', [c.orgId, userId, role.id, c.userId]);
   const emp = await createEmployee(c, {
     fullName: r.full_name, email: r.email, phone: r.phone, employmentType: r.requested_employment_type ?? 'permanent', userId,
     departmentId: d.departmentId ?? null, branchId: d.branchId ?? null, positionId: d.positionId ?? null, supervisorId: d.supervisorId ?? null,
   });
+  if (r.birth_date) await c.q.query('update employees set birth_date = $2 where id = $1', [emp.id, r.birth_date]);
   await c.q.query(`update registration_requests set status = 'approved', decided_by = $2, decided_at = now(), employee_id = $3, decision_reason = $4 where id = $1`, [r.id, c.userId, emp.id, d.reason ?? null]);
   await audit(c.q, {
     orgId: c.orgId, actorUserId: c.userId, action: 'registration.approved', entity: 'registration', entityId: r.id,

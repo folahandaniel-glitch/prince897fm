@@ -52,7 +52,7 @@ export async function login(orgSlug: string, emailRaw: string, password: string,
   if (byKey >= 5 || byIp >= 30) return { ok: false, error: 'Too many failed attempts. Please wait 15 minutes and try again.' };
 
   const rows = await q.query<any>(
-    `select u.id, u.org_id, u.password_hash, u.status, u.mfa_enabled, o.status as org_status from users u join organizations o on o.id = u.org_id where o.slug = $1 and u.email = $2`,
+    `select u.id, u.org_id, u.password_hash, u.status, u.mfa_enabled, o.status as org_status from users u join organizations o on o.id = u.org_id where o.slug = $1 and (u.email = $2 or u.username = $2)`,
     [slug, email],
   );
   const u = rows[0];

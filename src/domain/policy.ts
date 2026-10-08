@@ -99,8 +99,18 @@ export const SYSTEM_ROLES: RoleDef[] = [
   { key: 'department_head', name: 'Head of Department', permissions: [...BASE, 'kpi:view', 'kpi:rate', 'employee:view', 'attendance:view', 'attendance:review', 'roster:manage', 'leave:review', 'report:review', 'task:assign', 'discipline:raise', 'doc:upload', 'event:create', 'ticket:handle'] },
   { key: 'sales', name: 'Sales & Marketing', permissions: [...BASE, 'crm:view', 'crm:manage', 'doc:upload', 'event:create'] },
   { key: 'support', name: 'Support Officer', permissions: [...BASE, 'ticket:handle', 'crm:view'] },
+  { key: 'registration_approver', name: 'Registration approver', permissions: [...BASE, 'employee:view:own', 'employee:view', 'employee:create', 'registration:review'] },
   { key: 'employee', name: 'Employee', permissions: [...BASE, 'employee:view:own'] },
 ];
+
+/**
+ * The Administrator can do everything inside the organisation except what belongs to the Chairman's approval stages and the BackEnd
+ * (which is the Super Administrator's, who also assists the Chairman). Separation of duties still applies record by record.
+ */
+export const ADMIN_EXCLUDED = ['backend:access', 'finance:approve', 'payroll:approve', 'discipline:decide', 'dashboard:executive', 'finance:oversee'];
+const everything = new Set(SYSTEM_ROLES.flatMap((r) => r.permissions).filter((x) => x !== '*'));
+const admin = SYSTEM_ROLES.find((r) => r.key === 'tenant_admin')!;
+admin.permissions = [...new Set([...admin.permissions, ...everything])].filter((p) => !ADMIN_EXCLUDED.includes(p)).sort();
 
 /** Every permission string the system knows, for the role editor. */
 export const ALL_PERMISSIONS: string[] = [...new Set(SYSTEM_ROLES.flatMap((r) => r.permissions).filter((x) => x !== '*').concat(['backend:access']))].sort();

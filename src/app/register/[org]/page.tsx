@@ -14,7 +14,7 @@ async function register(_p: unknown, f: FormData) {
   await boot();
   try {
     await submitRegistration({
-      orgSlug: field(f, 'org'), fullName: field(f, 'fullName'), email: field(f, 'email'), phone: optional(f, 'phone') ?? undefined, password: field(f, 'password'),
+      orgSlug: field(f, 'org'), fullName: field(f, 'fullName'), email: field(f, 'email'), phone: field(f, 'phone'), password: field(f, 'password'), username: field(f, 'username'), birthDate: field(f, 'birth'), employmentType: field(f, 'type'),
       departmentId: optional(f, 'departmentId') ?? undefined, branchId: optional(f, 'branchId') ?? undefined, positionId: optional(f, 'positionId') ?? undefined,
     });
     return { ok: 'Registration submitted. You can sign in once an administrator approves it. Your requested role does not give you access by itself.' };
@@ -44,11 +44,12 @@ export default async function RegisterPage({ params }: { params: Promise<{ org: 
           <input type="hidden" name="org" value={slug} />
           <Field label="Full name" name="fullName" required autoComplete="name" />
           <Field label="Email" name="email" type="email" required autoComplete="email" />
-          <Field label="Phone" name="phone" type="tel" autoComplete="tel" />
+          <Field label="Username" name="username" required autoComplete="username" hint="3 to 30 letters, numbers, dots, dashes or underscores. You can sign in with it or with your email." /><Field label="Phone" name="phone" type="tel" required autoComplete="tel" /><Field label="Date of birth" name="birth" type="date" required />
           <Field label="Password" name="password" type="password" required autoComplete="new-password" hint="At least 12 characters. A passphrase of unrelated words works well." />
-          <Select label={`Requested ${t('department').toLowerCase()}`} name="departmentId" options={st.departments.filter((d: any) => !d.archived_at).map((d: any) => ({ value: d.id, label: d.name }))} />
-          <Select label={`Requested ${t('branch').toLowerCase()}`} name="branchId" options={st.branches.filter((d: any) => !d.archived_at).map((d: any) => ({ value: d.id, label: d.name }))} />
-          <Select label={`Requested ${t('position').toLowerCase()}`} name="positionId" options={st.positions.filter((d: any) => !d.archived_at).map((d: any) => ({ value: d.id, label: d.name }))} />
+          <Select label={`Requested ${t('department').toLowerCase()}`} name="departmentId" required allowEmpty={false} options={st.departments.filter((d: any) => !d.archived_at).map((d: any) => ({ value: d.id, label: d.name }))} />
+          <Select label={`Requested ${t('branch').toLowerCase()}`} name="branchId" required allowEmpty={false} options={st.branches.filter((d: any) => !d.archived_at).map((d: any) => ({ value: d.id, label: d.name }))} />
+          <Select label={`Requested ${t('position').toLowerCase()}`} name="positionId" required allowEmpty={false} options={st.positions.filter((d: any) => !d.archived_at).map((d: any) => ({ value: d.id, label: d.name }))} />
+          <Select label="Employment type" name="type" required allowEmpty={false} options={['permanent', 'contract', 'probation', 'intern', 'volunteer', 'freelance'].map((x) => ({ value: x, label: x }))} />
         </ActionForm>
       </div>
     </main>

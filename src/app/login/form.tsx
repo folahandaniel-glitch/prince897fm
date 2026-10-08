@@ -20,9 +20,9 @@ export function LoginForm({ action, defaultOrg, next }: { action: (p: State, d: 
           <input id="org" ref={orgRef} name="org" required defaultValue={defaultOrg} autoCapitalize="none" autoCorrect="off" spellCheck={false} className="input !border-white/15 !bg-white/5 !text-white placeholder:!text-slate-500" placeholder="e.g. prince897" /></div>
       </div>
       <div>
-        <label className="label !text-slate-200" htmlFor="email">Email</label>
+        <label className="label !text-slate-200" htmlFor="email">Email or username</label>
         <div className="auth-field"><Ico d={<><rect x="3.5" y="5.5" width="17" height="13" rx="2" /><path d="m4 7 8 6 8-6" /></>} />
-          <input id="email" name="email" type="email" required pattern="[^@]+@[^@]+[.][^@]+" title="Enter the full email address, for example name@gmail.com" autoComplete="username" inputMode="email" className="input !border-white/15 !bg-white/5 !text-white placeholder:!text-slate-500" placeholder="you@company.com" /></div>
+          <input id="email" name="email" type="text" required autoCapitalize="none" autoCorrect="off" spellCheck={false} autoComplete="username" className="input !border-white/15 !bg-white/5 !text-white placeholder:!text-slate-500" placeholder="you@company.com or your username" /></div>
       </div>
       <div>
         <div className="flex items-center justify-between"><label className="label !mb-1 !text-slate-200" htmlFor="password">Password</label><a href="/forgot" className="text-xs text-slate-300 underline-offset-2 hover:underline">Forgot password?</a></div>

@@ -6,9 +6,9 @@ import { need, UserError, type Ctx } from './ctx';
  * calendar events, announcements and records in custom modules. Private channels (internal mail, payslips, discipline) are deliberately not
  * listed here. Every removal needs a reason and is written to the audit trail.
  */
-export const KINDS = ['task', 'document', 'ticket', 'client', 'opportunity', 'event', 'announcement', 'record'] as const;
+export const KINDS = ['task', 'document', 'ticket', 'client', 'opportunity', 'event', 'announcement', 'record', 'report', 'leave', 'finance'] as const;
 export type Kind = (typeof KINDS)[number];
-export const KIND_LABEL: Record<Kind, string> = { task: 'Task', document: 'Document', ticket: 'Ticket', client: 'Client', opportunity: 'Opportunity', event: 'Event', announcement: 'Announcement', record: 'Module record' };
+export const KIND_LABEL: Record<Kind, string> = { task: 'Task', document: 'Document', ticket: 'Ticket', client: 'Client', opportunity: 'Opportunity', event: 'Event', announcement: 'Announcement', record: 'Module record', report: 'Report', leave: 'Leave request', finance: 'Finance entry' };
 
 export interface Item { kind: Kind; id: string; title: string; status: string | null; by: string | null; byName: string | null; at: string; href: string; removable: boolean }
 
@@ -25,6 +25,9 @@ export async function recentActivity(c: Ctx, f: { kind?: string; userId?: string
       union all select 'opportunity', o.id::text, o.title, o.stage, o.owner_user_id, o.created_at, '/crm/' || o.account_id from crm_opportunities o
       union all select 'event', ev.id::text, ev.title, ev.kind, ev.created_by, ev.created_at, '/calendar' from events ev
       union all select 'announcement', an.id::text, an.title, null, an.created_by, an.created_at, '/announcements' from announcements an
+      union all select 'report', rp.id::text, rt.name || ' ' || rp.period_start::text, rp.status, em.user_id, rp.created_at, '/reports/review' from reports rp join report_templates rt on rt.id = rp.template_id join employees em on em.id = rp.employee_id
+      union all select 'leave', lr.id::text, lt.name || ' ' || lr.start_date::text || ' to ' || lr.end_date::text, lr.status, el.user_id, lr.created_at, '/leave/review' from leave_requests lr join leave_types lt on lt.id = lr.leave_type_id join employees el on el.id = lr.employee_id
+      union all select 'finance', ft.id::text, ft.number || ' ' || ft.title, ft.status, ft.created_by, ft.created_at, '/finance/' || ft.id from fin_transactions ft
       union all select 'record', r.id::text, r.number, r.status, r.created_by, r.created_at, '/m/' || ce.key || '/' || r.id from custom_records r join custom_entities ce on ce.id = r.entity_id where r.archived_at is null
     )
     select f.*, coalesce(e.full_name, u.email) as by_name from feed f left join users u on u.id = f.by left join employees e on e.user_id = f.by
@@ -33,7 +36,7 @@ export async function recentActivity(c: Ctx, f: { kind?: string; userId?: string
        and ($4::text is null or lower(f.title) like $4)
      order by f.at desc limit $5`,
     [String(days), f.kind && (KINDS as readonly string[]).includes(f.kind) ? f.kind : null, f.userId || null, f.q?.trim() ? `%${f.q.trim().toLowerCase().replace(/[%_\\]/g, (m) => '\\' + m)}%` : null, limit]);
-  return rows.map((r) => ({ kind: r.kind, id: r.id, title: r.title, status: r.status, by: r.by, byName: r.by_name, at: new Date(r.at).toISOString(), href: r.href, removable: ['task', 'document', 'ticket', 'client', 'event', 'announcement'].includes(r.kind) }));
+  return rows.map((r) => ({ kind: r.kind, id: r.id, title: r.title, status: r.status, by: r.by, byName: r.by_name, at: new Date(r.at).toISOString(), href: r.href, removable: ['task', 'document', 'ticket', 'client', 'event', 'announcement', 'opportunity', 'record'].includes(r.kind) }));
 }
 
 /** Counts of what each account has created, for the "who is doing what" overview. */
@@ -62,6 +65,8 @@ export async function moderate(c: Ctx, kind: string, id: string, reason: string)
     case 'client': r = await c.q.query(`update crm_accounts set status = 'inactive' where id = $1 and status <> 'inactive' returning id`, [id]); break;
     case 'event': r = await c.q.query('delete from events where id = $1 returning id', [id]); break;
     case 'announcement': r = await c.q.query('delete from announcements where id = $1 returning id', [id]); break;
+    case 'opportunity': r = await c.q.query(`update crm_opportunities set stage = 'lost', lost_reason = $2, closed_at = now() where id = $1 and stage not in ('won','lost') returning id`, [id, `Closed by administrator: ${reason.trim()}`.slice(0, 300)]); break;
+    case 'record': r = await c.q.query('update custom_records set archived_at = now() where id = $1 and archived_at is null returning id', [id]); break;
     default: throw new UserError('This kind of item cannot be removed from here.');
   }
   if (!r[0]) throw new UserError('That item was already removed or changed.');

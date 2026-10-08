@@ -1,5 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
+import { SYSTEM_ROLES } from '../domain/policy';
 import { normalizeDbUrl } from './dbcheck';
 
 /** Minimal driver-neutral query surface. Embedded Postgres (PGlite) in dev/test, `postgres` in production. */
@@ -100,6 +101,12 @@ async function migrate(d: Driver) {
       } catch (e) {
         throw new Error(`Migration ${f} failed: ${(e as Error).message}`);
       }
+    }
+    // One-off: bring existing organisations' Administrator role up to the full set of tenant permissions (added to, never reduced).
+    const MARK = 'code:sync-admin-role-1';
+    if (!done.has(MARK)) {
+      await q.query(`update roles set permissions = (select array_agg(distinct p) from unnest(permissions || $1::text[]) p) where is_system and key = 'tenant_admin'`, [SYSTEM_ROLES.find((r) => r.key === 'tenant_admin')!.permissions]);
+      await q.query('insert into schema_migrations(name) values ($1)', [MARK]);
     }
     // The BackEnd shows applied migrations; the restricted application role may read (only) that list.
     await run('grant select on schema_migrations to app_user');

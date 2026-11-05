@@ -15,6 +15,7 @@ import { Icon } from '@/components/icons';
 import { Avatar } from '@/components/avatar';
 import { AnnouncementCarousel } from '@/components/announcement-carousel';
 
+import { FodanCredit } from "@/components/fodan-credit";
 async function logout() {
   'use server';
   const c = await cookies();
@@ -92,6 +93,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         <footer className="no-print border-t border-line px-4 pb-24 pt-4 text-center lg:pb-4">
           <p className="text-xs text-muted">{b.footer}</p>
           <p className="mt-1"><Link href="/backend" className="text-[9px] uppercase tracking-widest text-muted/60 hover:text-muted hover:underline">BackEnd</Link></p>
+          <FodanCredit />
         </footer>
         <BottomNav items={quick} />
         <CommandPalette links={flat.map((i) => ({ label: i.label, href: i.href }))} />

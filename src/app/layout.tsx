@@ -3,6 +3,7 @@ import { headers } from 'next/headers';
 import './globals.css';
 import { PwaBoot } from '@/components/pwa';
 
+import { organizationJsonLd } from "@/lib/seo-kit";
 export const metadata: Metadata = {
   title: { default: 'WorkSuite', template: '%s · WorkSuite' },
   description: 'Configurable enterprise workforce platform',
@@ -21,6 +22,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
     <html lang="en" suppressHydrationWarning>
       <head><script nonce={nonce} dangerouslySetInnerHTML={{ __html: themeInit }} /></head>
       <body>
+        <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(organizationJsonLd()) }} />
         <a href="#main" className="sr-only focus:not-sr-only focus:absolute focus:left-2 focus:top-2 focus:z-50 focus:rounded focus:bg-panel focus:p-3">Skip to content</a>
         {children}
         <PwaBoot />
